@@ -49,9 +49,11 @@ class MountainRecordUtil:
 		return result
 
 
+
 if __name__=="__main__":
 	parser = argparse.ArgumentParser(description='Specify mountainNames')
 	parser.add_argument('args', nargs='*', help='url encoded strings')
+	parser.add_argument('-nd', '--urlOnly', action='store_true', default=False, help='specify if you want to print url only')
 
 	args = parser.parse_args()
 	recUtil = MountainRecordUtil()
@@ -59,4 +61,7 @@ if __name__=="__main__":
 	for aMountainName in args.args:
 		result = recUtil.getMountainsWithMountainName( aMountainName )
 		for aMountain in result:
-			print( f'name:{aMountain["name"]}, yomi:{aMountain["yomi"]}, altitude:{aMountain["altitude"]} : {aMountain["url"]}' )
+			if args.urlOnly:
+				print( aMountain["url"] )
+			else:
+				print( f'name:{aMountain["name"]}, yomi:{aMountain["yomi"]}, altitude:{aMountain["altitude"]} : {aMountain["url"]}' )
