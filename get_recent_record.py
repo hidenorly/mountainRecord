@@ -14,6 +14,7 @@
 
 import argparse
 import mountainDic
+import subprocess
 
 class MountainRecordUtil:
 	def __init__(self):
@@ -54,6 +55,7 @@ if __name__=="__main__":
 	parser = argparse.ArgumentParser(description='Specify mountainNames')
 	parser.add_argument('args', nargs='*', help='url encoded strings')
 	parser.add_argument('-nd', '--urlOnly', action='store_true', default=False, help='specify if you want to print url only')
+	parser.add_argument('-o', '--openUrl', action='store_true', default=False, help='specify if you want to open the url')
 
 	args = parser.parse_args()
 	recUtil = MountainRecordUtil()
@@ -65,3 +67,7 @@ if __name__=="__main__":
 				print( aMountain["url"] )
 			else:
 				print( f'name:{aMountain["name"]}, yomi:{aMountain["yomi"]}, altitude:{aMountain["altitude"]} : {aMountain["url"]}' )
+			if args.openUrl:
+				exec_cmd = f'open {aMountain["url"]}'
+				result = subprocess.run(exec_cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
+				#print(result.stdout)
