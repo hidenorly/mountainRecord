@@ -14,6 +14,7 @@
 
 import argparse
 import mountainDic
+import sys
 import subprocess
 
 class MountainRecordUtil:
@@ -49,6 +50,19 @@ class MountainRecordUtil:
 			result = self.getMountainsWithMountainNameFallback(mountainName)
 		return result
 
+class ExecUtil:
+	@staticmethod
+	def _getOpen():
+		result = "open"
+		if sys.platform.startswith('win'):
+			result = "start"
+		return result
+
+	@staticmethod
+	def open(arg):
+		exec_cmd = f'{ExecUtil._getOpen()} {aMountain["url"]}'
+		result = subprocess.run(exec_cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
+		return result
 
 
 if __name__=="__main__":
@@ -68,6 +82,5 @@ if __name__=="__main__":
 			else:
 				print( f'name:{aMountain["name"]}, yomi:{aMountain["yomi"]}, altitude:{aMountain["altitude"]} : {aMountain["url"]}' )
 			if args.openUrl:
-				exec_cmd = f'open {aMountain["url"]}'
-				result = subprocess.run(exec_cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
+				result = ExecUtil.open(aMountain["url"])
 				#print(result.stdout)
