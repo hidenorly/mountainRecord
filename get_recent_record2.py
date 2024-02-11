@@ -124,10 +124,12 @@ if __name__=="__main__":
 	parser.add_argument('-nd', '--urlOnly', action='store_true', default=False, help='specify if you want to print url only')
 	parser.add_argument('-o', '--openUrl', action='store_true', default=False, help='specify if you want to open the url')
 	parser.add_argument('-f', '--filterLevel', action='store', default="D|C|B|A|S", help='specify if you want to filter the article info level')
+	parser.add_argument('-d', '--filterDays', action='store', type=int, default=7, help='specify if you want to filter the acceptable day before')
 
 	args = parser.parse_args()
 	recUtil = MountainRecordUtil()
 	acceptableInfoLevel = args.filterLevel.split("|")
+	today = datetime.now().date()
 
 	for aMountainName in args.args:
 		result = recUtil.getMountainsWithMountainName( aMountainName )
@@ -135,10 +137,12 @@ if __name__=="__main__":
 			results = recUtil.parseRecentRecord( aMountain["url"] )
 			for aResult in results:
 				if aResult["level"] in acceptableInfoLevel:
-					url = aResult["url"]
-					if args.urlOnly:
-						print( url )
-					else:
-						print( f'name:{aMountain["name"]}, yomi:{aMountain["yomi"]}, altitude:{aMountain["altitude"]} : {url}' )
-					if args.openUrl:
-						ExecUtil.open( url )
+					date_diff = today - aResult["date"]
+					if date_diff.days < args.filterDays:
+						url = aResult["url"]
+						if args.urlOnly:
+							print( url )
+						else:
+							print( f'name:{aMountain["name"]}, yomi:{aMountain["yomi"]}, altitude:{aMountain["altitude"]} : {url}' )
+						if args.openUrl:
+							ExecUtil.open( url )
