@@ -19,6 +19,9 @@ import subprocess
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
+import csv
+import itertools
+import os
 
 class MountainRecordUtil:
 	def __init__(self):
@@ -118,6 +121,62 @@ class ExecUtil:
 		return result
 
 
+class MountainFilterUtil:
+  @staticmethod
+  def openCsv( fileName, delimiter="," ):
+    result = []
+    if os.path.exists( fileName ):
+      file = open( fileName )
+      if file:
+        reader = csv.reader(file, quoting=csv.QUOTE_MINIMAL, delimiter=delimiter)
+        for aRow in reader:
+          data = []
+          for aCol in aRow:
+            aCol = aCol.strip()
+            if aCol.startswith("\""):
+              aCol = aCol[1:len(aCol)]
+            if aCol.endswith("\""):
+              aCol = aCol[0:len(aCol)-1]
+            data.append( aCol )
+          result.append( data )
+    return result
+
+  @staticmethod
+  def isMatchedMountainRobust(arrayData, search):
+    result = False
+    for aData in arrayData:
+      if aData.startswith(search) or search.startswith(aData):
+        result = True
+        break
+    return result
+
+  @staticmethod
+  def getSetOfCsvs( csvFiles ):
+    result = set()
+    csvFiles = csvFiles.split(",")
+    for aCsvFile in csvFiles:
+      aCsvFile = os.path.expanduser( aCsvFile )
+      theSet = set( itertools.chain.from_iterable( MountainFilterUtil.openCsv( aCsvFile ) ) )
+      result = result.union( theSet )
+    return result
+
+  @staticmethod
+  def mountainsIncludeExcludeFromFile( mountains, excludeFile, includeFile ):
+    result = set()
+    includes = set()
+    excludes = set()
+    for anExclude in excludeFile:
+      excludes =  excludes | MountainFilterUtil.getSetOfCsvs( anExclude )
+    for anInclude in includeFile:
+      includes = includes | MountainFilterUtil.getSetOfCsvs( anInclude )
+    for aMountain in includes:
+      mountains.add( aMountain )
+    for aMountain in mountains:
+      if not MountainFilterUtil.isMatchedMountainRobust( excludes, aMountain ):
+        result.add( aMountain )
+    return result
+
+
 if __name__=="__main__":
 	parser = argparse.ArgumentParser(description='Specify mountainNames', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 	parser.add_argument('args', nargs='*', help='url encoded strings')
@@ -126,13 +185,17 @@ if __name__=="__main__":
 	parser.add_argument('-n', '--numOpen', action='store', type=int, default=1, help='specify if you want to filter the opening article')
 	parser.add_argument('-f', '--filterLevel', action='store', default="D|C|B|A|S", help='specify if you want to filter the article info level')
 	parser.add_argument('-d', '--filterDays', action='store', type=int, default=7, help='specify if you want to filter the acceptable day before')
+	parser.add_argument('-e', '--exclude', action='append', default=[], help='specify excluding mountain list file e.g. climbedMountains.lst')
+	parser.add_argument('-i', '--include', action='append', default=[], help='specify including mountain list file e.g. climbedMountains.lst')
 
 	args = parser.parse_args()
 	recUtil = MountainRecordUtil()
 	acceptableInfoLevel = args.filterLevel.split("|")
 	today = datetime.now().date()
 
-	for aMountainName in args.args:
+	mountains = MountainFilterUtil.mountainsIncludeExcludeFromFile( set(args.args), args.exclude, args.include )
+
+	for aMountainName in mountains:
 		result = recUtil.getMountainsWithMountainName( aMountainName )
 		for aMountain in result:
 			results = recUtil.parseRecentRecord( aMountain["url"] )
