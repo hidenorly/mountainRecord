@@ -18,14 +18,78 @@ import sys
 import subprocess
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime, timedelta
+from datetime import timedelta, datetime
 import csv
+import json
 import itertools
 import os
+import re
+import copy
+
+
+class JsonCache:
+  DEFAULT_CACHE_BASE_DIR = os.path.expanduser("~")+"/.cache"
+  DEFAULT_CACHE_EXPIRE_HOURS = 1 # an hour
+
+  def __init__(self, cacheDir = None, expireHour = None):
+  	self.cacheBaseDir = cacheDir if cacheDir else JsonCache.DEFAULT_CACHE_BASE_DIR
+  	self.expireHour = expireHour if expireHour else JsonCache.DEFAULT_CACHE_EXPIRE_HOURS
+
+  def ensureCacheStorage(self):
+    if not os.path.exists(self.cacheBaseDir):
+      os.makedirs(self.cacheBaseDir)
+
+  def getCacheFilename(self, url):
+    result = url
+    result = re.sub(r'^https?://', '', result) # remove protocol
+    result = re.sub(r'^[a-zA-Z0-9\-_]+\.[a-zA-Z]{2,}', '', result) #remove domain
+    result = re.sub(r'[^a-zA-Z0-9._-]', '_', result) #remove non-character
+    result = result + ".json"
+    return result
+
+  def getCachePath(self, url):
+    return os.path.join(self.cacheBaseDir, self.getCacheFilename(url))
+
+  def storeToCache(self, url, result):
+    self.ensureCacheStorage()
+    cachePath = self.getCachePath( url )
+    dt_now = datetime.now()
+    _result = {
+    	"lastUpdate":dt_now.strftime("%Y-%m-%d %H:%M:%S"),
+    	"data": result
+    }
+    with open(cachePath, 'w', encoding='UTF-8') as f:
+      json.dump(_result, f, indent = 4, ensure_ascii=False)
+      f.close()
+
+  def isValidCache(self, lastUpdateString):
+    result = False
+    lastUpdate = datetime.strptime(lastUpdateString, "%Y-%m-%d %H:%M:%S")
+    dt_now = datetime.now()
+    if dt_now < ( lastUpdate+timedelta(hours=self.expireHour) ):
+      result = True
+
+    return result
+
+  def restoreFromCache(self, url):
+    result = None
+    cachePath = self.getCachePath( url )
+    if os.path.exists( cachePath ):
+	    with open(cachePath, 'r', encoding='UTF-8') as f:
+	      _result = json.load(f)
+	      f.close()
+
+	    if "lastUpdate" in _result:
+	      if self.isValidCache( _result["lastUpdate"] ):
+	        result = _result["data"]
+
+    return result
+
 
 class MountainRecordUtil:
 	def __init__(self):
 		dic = mountainDic.getMountainDic()
+		self.cache = JsonCache(os.path.join(JsonCache.DEFAULT_CACHE_BASE_DIR, "mountainRecord"), 1)
 
 		mountainUrls = {}
 		for aMountain in dic:
@@ -56,55 +120,94 @@ class MountainRecordUtil:
 			result = self.getMountainsWithMountainNameFallback(mountainName)
 		return result
 
-	def parseRecentRecord(self, url):
+	def _getCacheAwareData(self, result):
+		_result = []
+
+		if result:
+			for aResult in result:
+				_aResult = copy.copy(aResult)
+				del _aResult['date'] # remove non-serializable data
+				_result.append(_aResult)
+
+		return _result
+
+	def _ensureRestoredDataFromCache(self, _result):
 		result = []
-		res = requests.get(url)
-		soup = BeautifulSoup(res.text, 'html.parser')
-		blocks = soup.select('#reclist .block')
-		for block in blocks:
-			date_elem = block.select_one('.ft')
-			date_text = 'N/A'
-			date_parsed = None
-			if date_elem:
-				date_text = date_elem.text.strip().split('（')[0]
-			try:
-				date_parsed = datetime.strptime(date_text, '%Y年%m月%d日').date()
-			except :
-				pass
 
-			level_tag = block.select('.spr1[class*=spr1-level]')
-			level = 'N/A'
-			if level_tag:
-				level_class = [tag['class'][1] for tag in level_tag]
-				level_mapping = {
-					'spr1-level_C': 'C',
-					'spr1-level_B': 'B',
-					'spr1-level_A': 'A',
-					'spr1-level_S': 'S',
-					'spr1-level_D': 'D'
-				}
-				for cls in level_class:
-					if cls in level_mapping:
-						level = level_mapping[cls]
-						break
-			photo = True if block.select_one('.spr1-ico_photo') else False
-			route = True if block.select_one('.spr1-ico_route') else False
+		for aResult in _result:
+			if aResult['date_text'] and aResult['date_text']!="N/A":
+				try:
+					aResult['date'] = datetime.strptime(aResult['date_text'], '%Y年%m月%d日').date()
+					result.append(aResult)
+				except:
+					pass
 
-			url_elem = block.select_one('.title a')
-			if url_elem:
-				url = url_elem['href']
-			else:
-				url = 'N/A'
-
-			result.append({
-				'date_text': date_text,
-				'date': date_parsed,
-				'level': level,
-				'photo': photo,
-				'route': route,
-				'url': url
-			})
 		return result
+
+	def parseRecentRecord(self, recordUrl):
+		result = []
+		# try to get cache
+		_result = self.cache.restoreFromCache(recordUrl)
+		if _result:
+			# cache is found
+			result = self._ensureRestoredDataFromCache(_result)
+		else:
+			# cache is not found
+			res = requests.get(recordUrl)
+			soup = BeautifulSoup(res.text, 'html.parser')
+			blocks = soup.select('#reclist .block')
+			for block in blocks:
+				date_elem = block.select_one('.ft')
+				date_text = 'N/A'
+				date_parsed = None
+				if date_elem:
+					date_text = date_elem.text.strip().split('（')[0]
+				try:
+					date_parsed = datetime.strptime(date_text, '%Y年%m月%d日').date()
+				except :
+					pass
+
+				level_tag = block.select('.spr1[class*=spr1-level]')
+				level = 'N/A'
+				if level_tag:
+					level_class = [tag['class'][1] for tag in level_tag]
+					level_mapping = {
+						'spr1-level_C': 'C',
+						'spr1-level_B': 'B',
+						'spr1-level_A': 'A',
+						'spr1-level_S': 'S',
+						'spr1-level_D': 'D'
+					}
+					for cls in level_class:
+						if cls in level_mapping:
+							level = level_mapping[cls]
+							break
+				photo = True if block.select_one('.spr1-ico_photo') else False
+				route = True if block.select_one('.spr1-ico_route') else False
+
+				url_elem = block.select_one('.title a')
+				if url_elem:
+					url = url_elem['href']
+				else:
+					url = 'N/A'
+
+				aData = {
+					'date_text': date_text,
+					'date': date_parsed,
+					'level': level,
+					'photo': photo,
+					'route': route,
+					'url': url
+				}
+				if aData['date'] and aData['url']!="N/A":
+					result.append( aData )
+			# store to cache
+			_result = self._getCacheAwareData(result)
+			if _result:
+				self.cache.storeToCache(recordUrl, _result)
+
+		return result
+
 
 class ExecUtil:
 	@staticmethod
@@ -189,6 +292,7 @@ class MountainFilterUtil:
   	return int(result)
 
 
+
 if __name__=="__main__":
 	parser = argparse.ArgumentParser(description='Specify mountainNames', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 	parser.add_argument('args', nargs='*', help='url encoded strings')
@@ -209,6 +313,7 @@ if __name__=="__main__":
 	today = datetime.now().date()
 
 	mountains = MountainFilterUtil.mountainsIncludeExcludeFromFile( set(args.args), args.exclude, args.include )
+	mountains = sorted(mountains)
 
 	for aMountainName in mountains:
 		result = recUtil.getMountainsWithMountainName( aMountainName )
@@ -219,14 +324,15 @@ if __name__=="__main__":
 				n = 0
 				for aResult in results:
 					if aResult["level"] in acceptableInfoLevel:
-						date_diff = today - aResult["date"]
-						if date_diff.days < args.filterDays:
-							n=n+1
-							if n<=args.numOpen:
-								url = aResult["url"]
-								if args.urlOnly:
-									print( url )
-								else:
-									print( f'name:{aMountain["name"]}, yomi:{aMountain["yomi"]}, altitude:{aMountain["altitude"]} : {url}' )
-								if args.openUrl:
-									ExecUtil.open( url )
+						if aResult["date"]:
+							date_diff = today - aResult["date"]
+							if date_diff.days < args.filterDays:
+								n=n+1
+								if n<=args.numOpen:
+									url = aResult["url"]
+									if args.urlOnly:
+										print( url )
+									else:
+										print( f'name:{aMountain["name"]}, yomi:{aMountain["yomi"]}, altitude:{aMountain["altitude"]} : {url}' )
+									if args.openUrl:
+										ExecUtil.open( url )
