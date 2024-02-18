@@ -313,26 +313,27 @@ if __name__=="__main__":
 	today = datetime.now().date()
 
 	mountains = MountainFilterUtil.mountainsIncludeExcludeFromFile( set(args.args), args.exclude, args.include )
-	mountains = sorted(mountains)
-
+	mountainList=[]
 	for aMountainName in mountains:
-		result = recUtil.getMountainsWithMountainName( aMountainName )
-		for aMountain in result:
-			altitude = MountainFilterUtil.getAltitude( aMountain["altitude"] )
-			if altitude>=args.altitudeMin and altitude<=args.altitudeMax:
-				results = recUtil.parseRecentRecord( aMountain["url"] )
-				n = 0
-				for aResult in results:
-					if aResult["level"] in acceptableInfoLevel:
-						if aResult["date"]:
-							date_diff = today - aResult["date"]
-							if date_diff.days < args.filterDays:
-								n=n+1
-								if n<=args.numOpen:
-									url = aResult["url"]
-									if args.urlOnly:
-										print( url )
-									else:
-										print( f'name:{aMountain["name"]}, yomi:{aMountain["yomi"]}, altitude:{aMountain["altitude"]} : {url}' )
-									if args.openUrl:
-										ExecUtil.open( url )
+		mountainList.extend( recUtil.getMountainsWithMountainName( aMountainName ) )
+	mountainList = sorted(mountainList, key=lambda x: ( MountainFilterUtil.getAltitude(x["altitude"]), x["name"] ), reverse=True)
+
+	for aMountain in mountainList:
+		altitude = MountainFilterUtil.getAltitude( aMountain["altitude"] )
+		if altitude>=args.altitudeMin and altitude<=args.altitudeMax:
+			results = recUtil.parseRecentRecord( aMountain["url"] )
+			n = 0
+			for aResult in results:
+				if aResult["level"] in acceptableInfoLevel:
+					if aResult["date"]:
+						date_diff = today - aResult["date"]
+						if date_diff.days < args.filterDays:
+							n=n+1
+							if n<=args.numOpen:
+								url = aResult["url"]
+								if args.urlOnly:
+									print( url )
+								else:
+									print( f'name:{aMountain["name"]}, yomi:{aMountain["yomi"]}, altitude:{aMountain["altitude"]} : {url} : {aResult["date_text"]}' )
+								if args.openUrl:
+									ExecUtil.open( url )
