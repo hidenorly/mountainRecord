@@ -37,6 +37,7 @@ class MountainDetailRecordUtil:
 
 	def parseRecentRecord(self, recordUrl):
 		result = {
+			'url': recordUrl,
 			'level': None,
 			'duration': None,
 			'actual_duration': None,
