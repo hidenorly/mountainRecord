@@ -15,11 +15,81 @@
 import argparse
 import requests
 from bs4 import BeautifulSoup
+import json
+import os
+import re
+from datetime import timedelta, datetime
+
+
+class JsonCache:
+  DEFAULT_CACHE_BASE_DIR = os.path.expanduser("~")+"/.cache"
+  DEFAULT_CACHE_EXPIRE_HOURS = 1 # an hour
+  CACHE_INFINITE = -1
+
+  def __init__(self, cacheDir = None, expireHour = None):
+  	self.cacheBaseDir = cacheDir if cacheDir else JsonCache.DEFAULT_CACHE_BASE_DIR
+  	self.expireHour = expireHour if expireHour else JsonCache.DEFAULT_CACHE_EXPIRE_HOURS
+
+  def ensureCacheStorage(self):
+    if not os.path.exists(self.cacheBaseDir):
+      os.makedirs(self.cacheBaseDir)
+
+  def getCacheFilename(self, url):
+    result = url
+    result = re.sub(r'^https?://', '', result) # remove protocol
+    result = re.sub(r'^[a-zA-Z0-9\-_]+\.[a-zA-Z]{2,}', '', result) #remove domain
+    result = re.sub(r'[^a-zA-Z0-9._-]', '_', result) #remove non-character
+    result = result + ".json"
+    if result.startswith("."):
+    	result=result[1:]
+    return result
+
+  def getCachePath(self, url):
+    return os.path.join(self.cacheBaseDir, self.getCacheFilename(url))
+
+  def storeToCache(self, url, result):
+    self.ensureCacheStorage()
+    cachePath = self.getCachePath( url )
+    dt_now = datetime.now()
+    _result = {
+    	"lastUpdate":dt_now.strftime("%Y-%m-%d %H:%M:%S"),
+    	"data": result
+    }
+    with open(cachePath, 'w', encoding='UTF-8') as f:
+      json.dump(_result, f, indent = 4, ensure_ascii=False)
+      f.close()
+
+  def isValidCache(self, lastUpdateString):
+    result = False
+    lastUpdate = datetime.strptime(lastUpdateString, "%Y-%m-%d %H:%M:%S")
+    dt_now = datetime.now()
+    if self.expireHour == self.CACHE_INFINITE or ( dt_now < ( lastUpdate+timedelta(hours=self.expireHour) ) ):
+      result = True
+
+    return result
+
+  def restoreFromCache(self, url):
+    result = None
+    cachePath = self.getCachePath( url )
+    if os.path.exists( cachePath ):
+	    with open(cachePath, 'r', encoding='UTF-8') as f:
+	      _result = json.load(f)
+	      f.close()
+
+	    if "lastUpdate" in _result:
+	      if self.isValidCache( _result["lastUpdate"] ):
+	        result = _result["data"]
+
+    return result
 
 
 class MountainDetailRecordUtil:
 	def __init__(self, url):
-		self.data = data = self.parseRecentRecord(url)
+		cache = JsonCache(os.path.join(JsonCache.DEFAULT_CACHE_BASE_DIR, "mountainRecord"), JsonCache.CACHE_INFINITE)
+		self.data = data = cache.restoreFromCache(url)
+		if not data:
+			self.data = data = self.parseRecentRecord(url)
+			cache.storeToCache(url, data)
 
 		self.level = data["level"]
 		self.duration = data["duration"]
