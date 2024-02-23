@@ -91,23 +91,13 @@ class MountainDetailRecordUtil:
 			self.data = data = self.parseRecentRecord(url)
 			cache.storeToCache(url, data)
 
-		self.level = data["level"]
-		self.duration = data["duration"]
-		self.actual_duration = data["actual_duration"]
-		self.rest_duration = data["rest_duration"]
-		self.distance = data["distance"]
-		self.elavation_gained = data["elevation_gained"]
-		self.elavation_lost = data["elevation_lost"]
-		self.pace = data["pace"]
-		self.weather = data["weather"]
-		self.access = data["access"]
-		self.course_info = data["course_info"]
-		self.impression = data["impression"]
-		self.photo_captions = data["photo_captions"]
+		for key, value in data.items():
+			setattr(self, key, value)
 
 	def parseRecentRecord(self, recordUrl):
 		result = {
 			'url': recordUrl,
+			'title': None,
 			'level': None,
 			'duration': None,
 			'actual_duration': None,
@@ -131,6 +121,8 @@ class MountainDetailRecordUtil:
 			pass
 
 		if soup:
+			if soup.title:
+				result['title'] = str(soup.title.string).strip()
 			level = soup.find('div', class_='record-detail-mainimg-bottom-left-info')
 			if level:
 				level = level.find('div', class_='level')
@@ -219,6 +211,10 @@ class MountainDetailRecordUtil:
 
 		return result
 
+	def isValid(self):
+		result = (self.duration != None) and (self.distance != None) and (self.photo_captions)
+		return result
+
 
 class StrUtil:
   @staticmethod
@@ -235,9 +231,19 @@ class StrUtil:
 if __name__=="__main__":
 	parser = argparse.ArgumentParser(description='Specify mountain detail record urls', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 	parser.add_argument('args', nargs='*', help='url(s)')
+	parser.add_argument('-n', '--noOutputIfNone', action='store_true', default=False, help='specify if you want not to print None report')
+	parser.add_argument('-f', '--filterOut', action='store', default="", help='specify if you want to filter out the field e.g. photo_captions|access')
 
 	args = parser.parse_args()
+	args.filterOut = args.filterOut.split("|")
 	for aUrl in args.args:
 		anInfo = MountainDetailRecordUtil(aUrl)
-		for key, value in anInfo.data.items():
-			print(f'{StrUtil.ljust_jp(key, 20)}\t: {value}')
+		if not args.noOutputIfNone or anInfo.isValid():
+			for key, value in anInfo.data.items():
+				if not key in args.filterOut:
+					if isinstance(value, list):
+						print(f'{StrUtil.ljust_jp(key, 20)}\t:')
+						for aValue in value:
+							print(f'{StrUtil.ljust_jp("", 20)}\t: {aValue}')
+					else:
+						print(f'{StrUtil.ljust_jp(key, 20)}\t: {value}')
