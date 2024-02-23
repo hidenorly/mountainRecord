@@ -83,6 +83,15 @@ class JsonCache:
     return result
 
 
+class NumUtil:
+	def toFloat(inStr):
+		pattern = r'(\d+\.\d+)'
+		match = re.search(pattern, str(inStr))
+		if match:
+			return float(match.group(1))
+		else:
+			return None
+
 class MountainDetailRecordUtil:
 	def __init__(self, url):
 		cache = JsonCache(os.path.join(JsonCache.DEFAULT_CACHE_BASE_DIR, "mountainRecord"), JsonCache.CACHE_INFINITE)
@@ -93,6 +102,9 @@ class MountainDetailRecordUtil:
 
 		for key, value in data.items():
 			setattr(self, key, value)
+
+		self.distanceNum = NumUtil.toFloat(self.distance)
+
 
 	def parseRecentRecord(self, recordUrl):
 		result = {
@@ -233,17 +245,35 @@ if __name__=="__main__":
 	parser.add_argument('args', nargs='*', help='url(s)')
 	parser.add_argument('-n', '--noOutputIfNone', action='store_true', default=False, help='specify if you want not to print None report')
 	parser.add_argument('-f', '--filterOut', action='store', default="", help='specify if you want to filter out the field e.g. photo_captions|access')
+	parser.add_argument('-s', '--distanceMin', action='store', default=None, type=float, help='specify distance minimum')
+	parser.add_argument('-d', '--distanceMax', action='store', default=None, type=float, help='specify distance maximum')
 
 	args = parser.parse_args()
 	args.filterOut = args.filterOut.split("|")
+	i = 0
 	for aUrl in args.args:
 		anInfo = MountainDetailRecordUtil(aUrl)
-		if not args.noOutputIfNone or anInfo.isValid():
-			for key, value in anInfo.data.items():
-				if not key in args.filterOut:
-					if isinstance(value, list):
-						print(f'{StrUtil.ljust_jp(key, 20)}\t:')
-						for aValue in value:
-							print(f'{StrUtil.ljust_jp("", 20)}\t: {aValue}')
-					else:
-						print(f'{StrUtil.ljust_jp(key, 20)}\t: {value}')
+
+		# Filter out non-parsable case (login required, etc.)
+		if args.noOutputIfNone and not anInfo.isValid():
+			continue
+		# Filter out distance condition
+		if args.distanceMin!=None and anInfo.distance!=None and anInfo.distanceNum<=args.distanceMin:
+			continue
+		# Filter out distance condition
+		if args.distanceMax!=None and anInfo.distance!=None and anInfo.distanceNum>=args.distanceMax:
+			continue
+
+		if i>0:
+			print("")
+
+		for key, value in anInfo.data.items():
+			if not key in args.filterOut:
+				if isinstance(value, list):
+					print(f'{StrUtil.ljust_jp(key, 20)}\t:')
+					for aValue in value:
+						print(f'{StrUtil.ljust_jp("", 20)}\t: {aValue}')
+				else:
+					print(f'{StrUtil.ljust_jp(key, 20)}\t: {value}')
+
+		i = i + 1
