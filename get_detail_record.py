@@ -109,6 +109,7 @@ class MountainDetailRecordUtil:
 	def parseRecentRecord(self, recordUrl):
 		result = {
 			'url': recordUrl,
+			'date': None,
 			'title': None,
 			'level': None,
 			'duration': None,
@@ -135,6 +136,17 @@ class MountainDetailRecordUtil:
 		if soup:
 			if soup.title:
 				result['title'] = str(soup.title.string).strip()
+
+			date = soup.find('div', class_='record-detail-mainimg-bottom-left-title')
+			if date:
+				date = date.find('div', class_='date')
+				if date:
+					date = date.text.strip()
+					pos = date.find('[')
+					if pos!=None:
+						date = date[0:pos].strip()
+					result['date'] = date
+
 			level = soup.find('div', class_='record-detail-mainimg-bottom-left-info')
 			if level:
 				level = level.find('div', class_='level')
