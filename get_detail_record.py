@@ -93,6 +93,19 @@ class NumUtil:
 			return None
 
 class MountainDetailRecordUtil:
+	@staticmethod
+	def getMinutesFromHHMM(timeHHMM):
+		result = 0
+
+		if timeHHMM:
+			pos = str(timeHHMM).find(":")
+			if pos!=-1:
+				result = int( timeHHMM[0:pos] ) * 60 + int( timeHHMM[pos+1:] )
+			else:
+				result = int( timeHHMM )
+
+		return result
+
 	def __init__(self, url):
 		cache = JsonCache(os.path.join(JsonCache.DEFAULT_CACHE_BASE_DIR, "mountainRecord"), JsonCache.CACHE_INFINITE)
 		self.data = data = cache.restoreFromCache(url)
@@ -104,6 +117,7 @@ class MountainDetailRecordUtil:
 			setattr(self, key, value)
 
 		self.distanceNum = NumUtil.toFloat(self.distance)
+		self.durationMin = MountainDetailRecordUtil.getMinutesFromHHMM(self.actual_duration)
 
 
 	def parseRecentRecord(self, recordUrl):
@@ -259,9 +273,14 @@ if __name__=="__main__":
 	parser.add_argument('-f', '--filterOut', action='store', default="", help='specify if you want to filter out the field e.g. photo_captions|access')
 	parser.add_argument('-s', '--distanceMin', action='store', default=None, type=float, help='specify distance minimum')
 	parser.add_argument('-d', '--distanceMax', action='store', default=None, type=float, help='specify distance maximum')
+	parser.add_argument('-t', '--maxTime', action='store', default=None, help='specify max climb time e.g. 5:00')
+	parser.add_argument('-b', '--minTime', action='store', default=None, help='specify min climb time e.g. 4:30')
 
 	args = parser.parse_args()
 	args.filterOut = args.filterOut.split("|")
+	maxDurationMin = MountainDetailRecordUtil.getMinutesFromHHMM(args.maxTime)
+	minDurationMin = MountainDetailRecordUtil.getMinutesFromHHMM(args.minTime)
+
 	i = 0
 	for aUrl in args.args:
 		anInfo = MountainDetailRecordUtil(aUrl)
@@ -270,10 +289,13 @@ if __name__=="__main__":
 		if args.noOutputIfNone and not anInfo.isValid():
 			continue
 		# Filter out distance condition
-		if args.distanceMin!=None and anInfo.distance!=None and anInfo.distanceNum<=args.distanceMin:
+		if args.distanceMin!=None and anInfo.distance!=None and anInfo.distanceNum<args.distanceMin:
 			continue
 		# Filter out distance condition
-		if args.distanceMax!=None and anInfo.distance!=None and anInfo.distanceNum>=args.distanceMax:
+		if args.distanceMax!=None and anInfo.distance!=None and anInfo.distanceNum>args.distanceMax:
+			continue
+		# Filter out duration
+		if anInfo.durationMin and ( (minDurationMin and anInfo.durationMin < minDurationMin ) or (maxDurationMin and anInfo.durationMin > maxDurationMin ) ):
 			continue
 
 		if i>0:
