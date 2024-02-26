@@ -90,7 +90,11 @@ class NumUtil:
 		if match:
 			return float(match.group(1))
 		else:
-			return None
+			pattern = r'(\d+)'
+			match = re.search(pattern, str(inStr))
+			if match:
+				return float(match.group(1))
+		return None
 
 class MountainDetailRecordUtil:
 	@staticmethod
@@ -118,7 +122,8 @@ class MountainDetailRecordUtil:
 
 		self.distanceNum = NumUtil.toFloat(self.distance)
 		self.durationMin = MountainDetailRecordUtil.getMinutesFromHHMM(self.actual_duration)
-
+		self.elavation_up = NumUtil.toFloat(self.elevation_gained)
+		self.elavation_down = NumUtil.toFloat(self.elevation_lost)
 
 	def parseRecentRecord(self, recordUrl):
 		result = {
@@ -271,10 +276,12 @@ if __name__=="__main__":
 	parser.add_argument('args', nargs='*', help='url(s)')
 	parser.add_argument('-n', '--noOutputIfNone', action='store_true', default=False, help='specify if you want not to print None report')
 	parser.add_argument('-f', '--filterOut', action='store', default="", help='specify if you want to filter out the field e.g. photo_captions|access')
-	parser.add_argument('-s', '--distanceMin', action='store', default=None, type=float, help='specify distance minimum')
 	parser.add_argument('-d', '--distanceMax', action='store', default=None, type=float, help='specify distance maximum')
+	parser.add_argument('-s', '--distanceMin', action='store', default=None, type=float, help='specify distance minimum')
 	parser.add_argument('-t', '--maxTime', action='store', default=None, help='specify max climb time e.g. 5:00')
 	parser.add_argument('-b', '--minTime', action='store', default=None, help='specify min climb time e.g. 4:30')
+	parser.add_argument('-e', '--elevationMax', action='store', default=None, type=float, help='specify max elevation')
+	parser.add_argument('-r', '--elevationMin', action='store', default=None, type=float, help='specify min elevation')
 
 	args = parser.parse_args()
 	args.filterOut = args.filterOut.split("|")
@@ -296,6 +303,9 @@ if __name__=="__main__":
 			continue
 		# Filter out duration
 		if anInfo.durationMin and ( (minDurationMin and anInfo.durationMin < minDurationMin ) or (maxDurationMin and anInfo.durationMin > maxDurationMin ) ):
+			continue
+		# Filter out elevation
+		if anInfo.elavation_up and ( (args.elevationMin and anInfo.elavation_up < args.elevationMin ) or (args.elevationMax and anInfo.elavation_up > args.elevationMax ) ):
 			continue
 
 		if i>0:
