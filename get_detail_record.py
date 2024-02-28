@@ -282,7 +282,8 @@ if __name__=="__main__":
 	parser.add_argument('-b', '--minTime', action='store', default=None, help='specify min climb time e.g. 4:30')
 	parser.add_argument('-e', '--elevationMax', action='store', default=None, type=float, help='specify max elevation')
 	parser.add_argument('-r', '--elevationMin', action='store', default=None, type=float, help='specify min elevation')
-	parser.add_argument('-p', '--pistonOnly', action='store_true', default=False, help='specify if you want piston record')
+	parser.add_argument('-p', '--piston', action='store_true', default=False, help='specify if you want piston record')
+	parser.add_argument('-o', '--oneway', action='store_true', default=False, help='specify if you want non-piston (one-way) record')
 
 	args = parser.parse_args()
 	args.filterOut = args.filterOut.split("|")
@@ -309,8 +310,12 @@ if __name__=="__main__":
 		if anInfo.elavation_up and ( (args.elevationMin and anInfo.elavation_up < args.elevationMin ) or (args.elevationMax and anInfo.elavation_up > args.elevationMax ) ):
 			continue
 		# Filter out piston
-		if ( anInfo.elavation_up and anInfo.elavation_down ) and args.pistonOnly and ( abs(anInfo.elavation_up-anInfo.elavation_down) > min(anInfo.elavation_up,anInfo.elavation_down)*0.1 ):
-			continue
+		if anInfo.elavation_up and anInfo.elavation_down:
+			delta = abs(anInfo.elavation_up-anInfo.elavation_down)
+			threshold = min(anInfo.elavation_up,anInfo.elavation_down)*0.1
+			if not (args.piston and args.oneway):
+				if ( args.piston and delta > threshold ) or ( args.oneway and delta < threshold ):
+					continue
 
 		if i>0:
 			print("")
