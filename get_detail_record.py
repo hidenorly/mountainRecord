@@ -19,6 +19,7 @@ import json
 import os
 import re
 from datetime import timedelta, datetime
+import glob
 
 
 class JsonCache:
@@ -26,9 +27,10 @@ class JsonCache:
   DEFAULT_CACHE_EXPIRE_HOURS = 1 # an hour
   CACHE_INFINITE = -1
 
-  def __init__(self, cacheDir = None, expireHour = None):
+  def __init__(self, cacheDir = None, expireHour = None, numOfCache = None):
   	self.cacheBaseDir = cacheDir if cacheDir else JsonCache.DEFAULT_CACHE_BASE_DIR
   	self.expireHour = expireHour if expireHour else JsonCache.DEFAULT_CACHE_EXPIRE_HOURS
+  	self.numOfCache = numOfCache if numOfCache else JsonCache.CACHE_INFINITE
 
   def ensureCacheStorage(self):
     if not os.path.exists(self.cacheBaseDir):
@@ -47,6 +49,18 @@ class JsonCache:
   def getCachePath(self, url):
     return os.path.join(self.cacheBaseDir, self.getCacheFilename(url))
 
+  def limitNumOfCacheFiles(self):
+  	if self.numOfCache!=self.CACHE_INFINITE:
+	  	files = glob.glob(f'{self.cacheBaseDir}/*.json')
+	  	files = sorted(files, key=os.path.getmtime, reverse=True)
+	  	remove_files = files[self.numOfCache:]
+	  	for aRemoveFile in remove_files:
+	  		try:
+		  		os.remove(aRemoveFile)
+		  	except:
+		  		pass
+
+
   def storeToCache(self, url, result):
     self.ensureCacheStorage()
     cachePath = self.getCachePath( url )
@@ -58,6 +72,8 @@ class JsonCache:
     with open(cachePath, 'w', encoding='UTF-8') as f:
       json.dump(_result, f, indent = 4, ensure_ascii=False)
       f.close()
+    self.limitNumOfCacheFiles()
+
 
   def isValidCache(self, lastUpdateString):
     result = False
@@ -96,7 +112,10 @@ class NumUtil:
 				return float(match.group(1))
 		return None
 
+
 class MountainDetailRecordUtil:
+	NUM_OF_CACHE = 1000
+
 	@staticmethod
 	def getMinutesFromHHMM(timeHHMM):
 		result = 0
@@ -111,7 +130,7 @@ class MountainDetailRecordUtil:
 		return result
 
 	def __init__(self, url):
-		cache = JsonCache(os.path.join(JsonCache.DEFAULT_CACHE_BASE_DIR, "mountainRecord"), JsonCache.CACHE_INFINITE)
+		cache = JsonCache(os.path.join(JsonCache.DEFAULT_CACHE_BASE_DIR, "mountainDetailRecord"), JsonCache.CACHE_INFINITE, self.NUM_OF_CACHE)
 		self.data = data = cache.restoreFromCache(url)
 		if not data:
 			self.data = data = self.parseRecentRecord(url)
