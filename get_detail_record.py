@@ -172,18 +172,28 @@ class MountainDetailRecordUtil:
 			pass
 
 		if soup:
-			if soup.title:
-				result['title'] = str(soup.title.string).strip()
-
 			date = soup.find('div', class_='record-detail-mainimg-bottom-left-title')
 			if date:
 				date = date.find('div', class_='date')
 				if date:
 					date = date.text.strip()
-					pos = date.find('[')
-					if pos!=None:
+					pos = date.find('〜')
+					if pos==-1:
+						pos = date.find('[')
+					if pos!=-1:
 						date = date[0:pos].strip()
 					result['date'] = date
+
+			if soup.title:
+				title = str(soup.title.string).strip()
+				date = result['date']
+				pos = date.find('(')
+				if pos!=-1:
+					date = date[0:pos].strip()
+				pos = title.find(date)
+				if pos!=-1:
+					title = title[0:pos-2]
+				result['title'] = title
 
 			level = soup.find('div', class_='record-detail-mainimg-bottom-left-info')
 			if level:
