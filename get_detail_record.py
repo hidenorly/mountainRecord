@@ -98,6 +98,15 @@ class JsonCache:
 
     return result
 
+  @staticmethod
+  def clearAllCache(cacheId):
+  	files = glob.glob(f'{os.path.join(JsonCache.DEFAULT_CACHE_BASE_DIR, cacheId)}/*.json')
+  	for aRemoveFile in files:
+  		try:
+  			os.remove(aRemoveFile)
+  		except:
+  			pass
+
 
 class NumUtil:
 	def toFloat(inStr):
@@ -115,6 +124,7 @@ class NumUtil:
 
 class MountainDetailRecordUtil:
 	NUM_OF_CACHE = 1000
+	CACHE_ID = "mountainDetailRecord"
 
 	@staticmethod
 	def getMinutesFromHHMM(timeHHMM):
@@ -130,7 +140,7 @@ class MountainDetailRecordUtil:
 		return result
 
 	def __init__(self, url):
-		cache = JsonCache(os.path.join(JsonCache.DEFAULT_CACHE_BASE_DIR, "mountainDetailRecord"), JsonCache.CACHE_INFINITE, self.NUM_OF_CACHE)
+		cache = JsonCache(os.path.join(JsonCache.DEFAULT_CACHE_BASE_DIR, self.CACHE_ID), JsonCache.CACHE_INFINITE, self.NUM_OF_CACHE)
 		self.data = data = cache.restoreFromCache(url)
 		if not data:
 			self.data = data = self.parseRecentRecord(url)
@@ -313,8 +323,13 @@ if __name__=="__main__":
 	parser.add_argument('-r', '--elevationMin', action='store', default=None, type=float, help='specify min elevation')
 	parser.add_argument('-p', '--piston', action='store_true', default=False, help='specify if you want piston record')
 	parser.add_argument('-o', '--oneway', action='store_true', default=False, help='specify if you want non-piston (one-way) record')
+	parser.add_argument('-c', '--clearCache', action='store_true', default=False, help='specify if you want to execute with clearing cache')
 
 	args = parser.parse_args()
+
+	if args.clearCache:
+		JsonCache.clearAllCache(MountainDetailRecordUtil.CACHE_ID)
+
 	args.filterOut = args.filterOut.split("|")
 	maxDurationMin = MountainDetailRecordUtil.getMinutesFromHHMM(args.maxTime)
 	minDurationMin = MountainDetailRecordUtil.getMinutesFromHHMM(args.minTime)
