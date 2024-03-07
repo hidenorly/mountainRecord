@@ -17,6 +17,8 @@ import requests
 from bs4 import BeautifulSoup
 import json
 import os
+import sys
+import subprocess
 import re
 from datetime import timedelta, datetime
 import glob
@@ -310,6 +312,21 @@ class StrUtil:
     return value + pad * (length-count_length)
 
 
+class ExecUtil:
+	@staticmethod
+	def _getOpen():
+		result = "open"
+		if sys.platform.startswith('win'):
+			result = "start"
+		return result
+
+	@staticmethod
+	def open(arg):
+		exec_cmd = f'{ExecUtil._getOpen()} {arg}'
+		result = subprocess.run(exec_cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
+		return result
+
+
 if __name__=="__main__":
 	parser = argparse.ArgumentParser(description='Specify mountain detail record urls', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 	parser.add_argument('args', nargs='*', help='url(s)')
@@ -322,7 +339,8 @@ if __name__=="__main__":
 	parser.add_argument('-e', '--elevationMax', action='store', default=None, type=float, help='specify max elevation')
 	parser.add_argument('-r', '--elevationMin', action='store', default=None, type=float, help='specify min elevation')
 	parser.add_argument('-p', '--piston', action='store_true', default=False, help='specify if you want piston record')
-	parser.add_argument('-o', '--oneway', action='store_true', default=False, help='specify if you want non-piston (one-way) record')
+	parser.add_argument('-1', '--oneway', action='store_true', default=False, help='specify if you want non-piston (one-way) record')
+	parser.add_argument('-o', '--openUrl', action='store_true', default=False, help='specify if you want to open the url')
 	parser.add_argument('-c', '--clearCache', action='store_true', default=False, help='specify if you want to execute with clearing cache')
 
 	args = parser.parse_args()
@@ -373,4 +391,6 @@ if __name__=="__main__":
 				else:
 					print(f'{StrUtil.ljust_jp(key, 20)}\t: {value}')
 
+		if args.openUrl:
+			ExecUtil.open( aUrl )
 		i = i + 1
