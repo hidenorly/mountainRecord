@@ -59,8 +59,8 @@ class ExecUtil:
 		return result
 
 	@staticmethod
-	def open(arg):
-		exec_cmd = f'{ExecUtil._getOpen()} {aMountain["url"]}'
+	def open(url):
+		exec_cmd = f'{ExecUtil._getOpen()} {url}'
 		result = subprocess.run(exec_cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
 		return result
 
