@@ -25,7 +25,7 @@ import itertools
 import os
 import re
 import copy
-
+import time
 
 class JsonCache:
   DEFAULT_CACHE_BASE_DIR = os.path.expanduser("~")+"/.cache"
@@ -336,4 +336,6 @@ if __name__=="__main__":
 								else:
 									print( f'name:{aMountain["name"]}, yomi:{aMountain["yomi"]}, altitude:{aMountain["altitude"]} : {url} : {aResult["date_text"]}' )
 								if args.openUrl:
+									if n>=2:
+										time.sleep(0.5)
 									ExecUtil.open( url )
