@@ -16,6 +16,7 @@ import argparse
 import mountainDic
 import sys
 import subprocess
+import time
 
 class MountainRecordUtil:
 	def __init__(self):
@@ -74,13 +75,17 @@ if __name__=="__main__":
 	args = parser.parse_args()
 	recUtil = MountainRecordUtil()
 
+	n = 0
 	for aMountainName in args.args:
 		result = recUtil.getMountainsWithMountainName( aMountainName )
 		for aMountain in result:
+			n = n + 1
 			if args.urlOnly:
 				print( aMountain["url"] )
 			else:
 				print( f'name:{aMountain["name"]}, yomi:{aMountain["yomi"]}, altitude:{aMountain["altitude"]} : {aMountain["url"]}' )
 			if args.openUrl:
+				if n>=2:
+					time.sleep(0.5)
 				result = ExecUtil.open(aMountain["url"])
 				#print(result.stdout)
