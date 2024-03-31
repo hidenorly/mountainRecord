@@ -22,6 +22,8 @@ import subprocess
 import re
 from datetime import timedelta, datetime
 import glob
+import shlex
+import time
 
 
 class JsonCache:
@@ -313,18 +315,19 @@ class StrUtil:
 
 
 class ExecUtil:
-	@staticmethod
-	def _getOpen():
-		result = "open"
-		if sys.platform.startswith('win'):
-			result = "start"
-		return result
+  @staticmethod
+  def _getOpen():
+    result = "open"
+    if sys.platform.startswith('win'):
+      result = "start"
+    return result
 
-	@staticmethod
-	def open(arg):
-		exec_cmd = f'{ExecUtil._getOpen()} {arg}'
-		result = subprocess.run(exec_cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
-		return result
+  @staticmethod
+  def open(url):
+    exec_cmd = f'{ExecUtil._getOpen()} {shlex.quote(url)}'
+    result = subprocess.run(exec_cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
+    return result
+
 
 
 if __name__=="__main__":
@@ -392,5 +395,7 @@ if __name__=="__main__":
 					print(f'{StrUtil.ljust_jp(key, 20)}\t: {value}')
 
 		if args.openUrl:
+			if i>=1:
+				time.sleep(1)
 			ExecUtil.open( aUrl )
 		i = i + 1
