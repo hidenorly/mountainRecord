@@ -16,6 +16,7 @@ import argparse
 import mountainDic
 import sys
 import subprocess
+import shlex
 import time
 
 class MountainRecordUtil:
@@ -52,18 +53,18 @@ class MountainRecordUtil:
 		return result
 
 class ExecUtil:
-	@staticmethod
-	def _getOpen():
-		result = "open"
-		if sys.platform.startswith('win'):
-			result = "start"
-		return result
+  @staticmethod
+  def _getOpen():
+    result = "open"
+    if sys.platform.startswith('win'):
+      result = "start"
+    return result
 
-	@staticmethod
-	def open(url):
-		exec_cmd = f'{ExecUtil._getOpen()} {url}'
-		result = subprocess.run(exec_cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
-		return result
+  @staticmethod
+  def open(url):
+    exec_cmd = f'{ExecUtil._getOpen()} {shlex.quote(url)}'
+    result = subprocess.run(exec_cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
+    return result
 
 
 if __name__=="__main__":
@@ -86,6 +87,6 @@ if __name__=="__main__":
 				print( f'name:{aMountain["name"]}, yomi:{aMountain["yomi"]}, altitude:{aMountain["altitude"]} : {aMountain["url"]}' )
 			if args.openUrl:
 				if n>=2:
-					time.sleep(0.5)
+					time.sleep(1)
 				result = ExecUtil.open(aMountain["url"])
 				#print(result.stdout)
