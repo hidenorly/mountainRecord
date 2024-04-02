@@ -26,6 +26,7 @@ import os
 import re
 import copy
 import time
+import shlex
 
 class JsonCache:
   DEFAULT_CACHE_BASE_DIR = os.path.expanduser("~")+"/.cache"
@@ -292,6 +293,20 @@ class MountainFilterUtil:
   	return int(result)
 
 
+class ExecUtil:
+  @staticmethod
+  def _getOpen():
+    result = "open"
+    if sys.platform.startswith('win'):
+      result = "start"
+    return result
+
+  @staticmethod
+  def open(url):
+    exec_cmd = f'{ExecUtil._getOpen()} {shlex.quote(url)}'
+    result = subprocess.run(exec_cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
+    return result
+
 
 if __name__=="__main__":
 	parser = argparse.ArgumentParser(description='Specify mountainNames', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -337,5 +352,5 @@ if __name__=="__main__":
 									print( f'name:{aMountain["name"]}, yomi:{aMountain["yomi"]}, altitude:{aMountain["altitude"]} : {url} : {aResult["date_text"]}' )
 								if args.openUrl:
 									if n>=2:
-										time.sleep(0.5)
+										time.sleep(1)
 									ExecUtil.open( url )
