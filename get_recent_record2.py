@@ -41,12 +41,15 @@ class JsonCache:
       os.makedirs(self.cacheBaseDir)
 
   def getCacheFilename(self, url):
-    result = url
-    result = re.sub(r'^https?://', '', result) # remove protocol
-    result = re.sub(r'^[a-zA-Z0-9\-_]+\.[a-zA-Z]{2,}', '', result) #remove domain
-    result = re.sub(r'[^a-zA-Z0-9._-]', '_', result) #remove non-character
-    result = result + ".json"
-    return result
+  	result = url
+  	result = re.sub(r'^https?://', '', url)
+  	result = re.sub(r'^[a-zA-Z0-9\-_]+\.[a-zA-Z]{2,}', '', result)
+  	result = re.sub(r'[^a-zA-Z0-9._-]', '_', result)
+  	result = re.sub(r'\.', '_', result)
+  	result = re.sub(r'=', '_', result)
+  	result = re.sub(r'#', '_', result)
+  	result = result + ".json"
+  	return result
 
   def getCachePath(self, url):
     return os.path.join(self.cacheBaseDir, self.getCacheFilename(url))
@@ -86,76 +89,116 @@ class JsonCache:
 
     return result
 
-
-class MountainRecordUtil:
+class ParserBase:
+	TARGET_URL = "DUMMY"
 	def __init__(self):
-		dic = mountainDic.getMountainDic()
-		self.cache = JsonCache(os.path.join(JsonCache.DEFAULT_CACHE_BASE_DIR, "mountainRecord"), 1)
+		pass
 
-		mountainUrls = {}
-		for aMountain in dic:
-			if aMountain["url"]:
-				mountainUrls[ aMountain["url"] ] = aMountain
+	def canHandle(self, recordUrl):
+		return recordUrl.startswith(self.TARGET_URL)
 
-			self.mountainDic = {}
-			for url, aMountain in mountainUrls.items():
-				if not aMountain["name"] in self.mountainDic:
-					self.mountainDic[ aMountain["name"] ] = []
-				self.mountainDic[ aMountain["name"] ].append( aMountain )
+	def parseDate(self, date_text):
+		date_parsed = None
+		try:
+			date_parsed = datetime.strptime(date_text, "%Y/%m/%d").date()
+		except:
+			pass
+		return date_parsed
 
-	def getMountainsWithMountainNameFallback(self, mountainName):
-		result = []
-		for theMountainName, theMountains in self.mountainDic.items():
-			for theMountain in theMountains:
-				if theMountain["name"].find(mountainName)!=-1 or theMountain["yomi"].find(mountainName)!=-1:
-					result.append( theMountain )
-		return result
+class MountainRecordUtilYamap(ParserBase):
+	TARGET_URL = "https://yamap.com"
 
+	def __init__(self):
+		super().__init__()
 
-	def getMountainsWithMountainName(self, mountainName):
-		result = []
-		if mountainName in self.mountainDic:
-			result = self.mountainDic[ mountainName ]
-		# fallback
-		if not result:
-			result = self.getMountainsWithMountainNameFallback(mountainName)
-		return result
-
-	def _getCacheAwareData(self, result):
-		_result = []
-
-		if result:
-			for aResult in result:
-				_aResult = copy.copy(aResult)
-				del _aResult['date'] # remove non-serializable data
-				_result.append(_aResult)
-
-		return _result
-
-	def _ensureRestoredDataFromCache(self, _result):
-		result = []
-
-		for aResult in _result:
-			if aResult['date_text'] and aResult['date_text']!="N/A":
-				try:
-					aResult['date'] = datetime.strptime(aResult['date_text'], '%Y年%m月%d日').date()
-					result.append(aResult)
-				except:
-					pass
-
-		return result
+	def parseDate(self, date_text):
+		date_parsed = None
+		try:
+			date_parsed = datetime.strptime(date_text, "%Y.%m.%d").date()
+		except:
+			pass
+		return date_parsed
 
 	def parseRecentRecord(self, recordUrl):
 		result = []
-		# try to get cache
-		_result = self.cache.restoreFromCache(recordUrl)
-		if _result:
-			# cache is found
-			result = self._ensureRestoredDataFromCache(_result)
-		else:
-			# cache is not found
+
+		soup = None
+		try:
 			res = requests.get(recordUrl)
 			soup = BeautifulSoup(res.text, 'html.parser')
+		except:
+			pass
+
+		if soup:
+			activities = soup.find_all('article', class_='MountainActivityItem')
+			if activities:
+				for activity in activities:
+					date_text = 'N/A'
+					date_parsed = None
+					title = activity.find('h3', class_='MountainActivityItem__Heading')
+					if title:
+						title = title.text.strip()
+					_date = activity.find('span', class_='MountainActivityItem__Date')
+					if _date:
+						_date = _date.text.strip()
+					duration = activity.find_all('span', class_='ActivityCounters__Count__Record')
+					if duration:
+						duration = duration[0].text.strip()
+					distance = activity.find_all('span', class_='ActivityCounters__Count__Record')
+					if distance:
+						if len(distance)>=2:
+							distance = distance[1].text.strip().split()[0]
+					elevation = activity.find_all('span', class_='ActivityCounters__Count__Record')
+					if elevation:
+						if len(elevation)>=3:
+							elevation=elevation[2].text.strip().split()[0]
+					url = activity.find('a', class_='MountainActivityItem__Thumbnail')
+					if url:
+						url = "https://yamap.com"+url['href']
+
+					if _date:
+						date_text = _date.split('(')[0]
+						date_parsed = self.parseDate(date_text)
+
+					aData = {
+						"title": title,
+						'date_text': date_text,
+						'date': date_parsed,
+						"duration": duration,
+						"distance": distance,
+						"elevation": elevation,
+						"url": url
+					}
+
+					if aData['date'] and aData['url']!="N/A":
+						result.append( aData )
+		return result
+
+class MountainRecordUtilYamareco(ParserBase):
+	TARGET_URL = "https://www.yamareco.com/"
+
+	def __init__(self):
+		super().__init__()
+
+	def parseDate(self, date_text):
+		date_parsed = None
+		try:
+			date_parsed = datetime.strptime(date_text, '%Y年%m月%d日').date()
+		except:
+			pass
+		return date_parsed
+
+	def parseRecentRecord(self, recordUrl):
+		result = []
+
+		soup = None
+		try:
+			res = requests.get(recordUrl)
+			soup = BeautifulSoup(res.text, 'html.parser')
+		except:
+			pass
+
+		if soup:
 			blocks = soup.select('#reclist .block')
 			for block in blocks:
 				date_elem = block.select_one('.ft')
@@ -163,10 +206,7 @@ class MountainRecordUtil:
 				date_parsed = None
 				if date_elem:
 					date_text = date_elem.text.strip().split('（')[0]
-				try:
-					date_parsed = datetime.strptime(date_text, '%Y年%m月%d日').date()
-				except :
-					pass
+					date_parsed = self.parseDate(date_text)
 
 				level_tag = block.select('.spr1[class*=spr1-level]')
 				level = 'N/A'
@@ -187,12 +227,15 @@ class MountainRecordUtil:
 				route = True if block.select_one('.spr1-ico_route') else False
 
 				url_elem = block.select_one('.title a')
+				title = ""
 				if url_elem:
 					url = url_elem['href']
+					title = url_elem.text.strip()
 				else:
 					url = 'N/A'
 
 				aData = {
+					"title": title,
 					'date_text': date_text,
 					'date': date_parsed,
 					'level': level,
@@ -202,10 +245,89 @@ class MountainRecordUtil:
 				}
 				if aData['date'] and aData['url']!="N/A":
 					result.append( aData )
-			# store to cache
-			_result = self._getCacheAwareData(result)
+
+		return result
+
+
+
+class MountainRecordUtil:
+	def __init__(self):
+		self.cache = JsonCache(os.path.join(JsonCache.DEFAULT_CACHE_BASE_DIR, "mountainRecord"), 1)
+
+		parser = self.parser = []
+		parser.append( MountainRecordUtilYamareco() )
+		parser.append( MountainRecordUtilYamap() )
+
+		self.mountainDic = {}
+		with open("mountain_dic.json", 'r', encoding='UTF-8') as f:
+			self.mountainDic = json.load(f)
+			f.close()
+
+	def getMountainsWithMountainNameFallback(self, mountainName):
+		result = {}
+		for theMountainName, theMountains in self.mountainDic.items():
+			for theMountain in theMountains:
+				if theMountain["name"].find(mountainName)!=-1 or theMountain["yomi"].find(mountainName)!=-1:
+					result[theMountain["name"]] = theMountain
+
+		return result.values()
+
+
+	def getMountainsWithMountainName(self, mountainName):
+		result = []
+		if mountainName in self.mountainDic:
+			result = self.mountainDic[ mountainName ]
+		# fallback
+		if not result:
+			result = self.getMountainsWithMountainNameFallback(mountainName)
+		return result
+
+
+	def _getCacheAwareData(self, result):
+		_result = []
+
+		if result:
+			for aResult in result:
+				_aResult = copy.copy(aResult)
+				del _aResult['date'] # remove non-serializable data
+				_result.append(_aResult)
+
+		return _result
+
+	def _ensureRestoredDataFromCache(self, _result, parser):
+		result = []
+
+		for aResult in _result:
+			if aResult['date_text'] and aResult['date_text']!="N/A":
+				aResult['date'] = parser.parseDate( aResult['date_text'] )
+				if aResult['date']:
+					result.append(aResult)
+
+		return result
+
+	def parseRecentRecord(self, recordUrl):
+		result = []
+
+		parser = None
+		for _parser in self.parser:
+			if _parser.canHandle(recordUrl):
+				parser = _parser
+				break
+
+		if parser:
+			# try to get cache
+			_result = self.cache.restoreFromCache(recordUrl)
 			if _result:
-				self.cache.storeToCache(recordUrl, _result)
+				# cache is found
+				result = self._ensureRestoredDataFromCache(_result, parser)
+			else:
+				# cache is NOT found
+				result = parser.parseRecentRecord(recordUrl)
+				if result:
+					# store to cache
+					_result = self._getCacheAwareData(result)
+					if _result:
+						self.cache.storeToCache(recordUrl, _result)
 
 		return result
 
@@ -313,8 +435,7 @@ if __name__=="__main__":
 	parser.add_argument('args', nargs='*', help='url encoded strings')
 	parser.add_argument('-nd', '--urlOnly', action='store_true', default=False, help='specify if you want to print url only')
 	parser.add_argument('-o', '--openUrl', action='store_true', default=False, help='specify if you want to open the url')
-	parser.add_argument('-n', '--numOpen', action='store', type=int, default=1, help='specify if you want to filter the opening article')
-	parser.add_argument('-f', '--filterLevel', action='store', default="D|C|B|A|S", help='specify if you want to filter the article info level')
+	parser.add_argument('-n', '--numOpen', action='store', type=int, default=3, help='specify if you want to filter the opening article')
 	parser.add_argument('-d', '--filterDays', action='store', type=int, default=7, help='specify if you want to filter the acceptable day before')
 	parser.add_argument('-e', '--exclude', action='append', default=[], help='specify excluding mountain list file e.g. climbedMountains.lst')
 	parser.add_argument('-i', '--include', action='append', default=[], help='specify including mountain list file e.g. climbedMountains.lst')
@@ -324,7 +445,6 @@ if __name__=="__main__":
 
 	args = parser.parse_args()
 	recUtil = MountainRecordUtil()
-	acceptableInfoLevel = args.filterLevel.split("|")
 	today = datetime.now().date()
 
 	mountains = MountainFilterUtil.mountainsIncludeExcludeFromFile( set(args.args), args.exclude, args.include )
@@ -339,18 +459,17 @@ if __name__=="__main__":
 			results = recUtil.parseRecentRecord( aMountain["url"] )
 			n = 0
 			for aResult in results:
-				if aResult["level"] in acceptableInfoLevel:
-					if aResult["date"]:
-						date_diff = today - aResult["date"]
-						if date_diff.days < args.filterDays:
-							n=n+1
-							if n<=args.numOpen:
-								url = aResult["url"]
-								if args.urlOnly:
-									print( url )
-								else:
-									print( f'name:{aMountain["name"]}, yomi:{aMountain["yomi"]}, altitude:{aMountain["altitude"]} : {url} : {aResult["date_text"]}' )
-								if args.openUrl:
-									if n>=2:
-										time.sleep(1)
-									ExecUtil.open( url )
+				if aResult and ("date" in aResult) and aResult["date"]:
+					date_diff = today - aResult["date"]
+					if date_diff.days < args.filterDays:
+						n=n+1
+						if n<=args.numOpen:
+							url = aResult["url"]
+							if args.urlOnly:
+								print( url )
+							else:
+								print( f'name:{aMountain["name"]}, yomi:{aMountain["yomi"]}, altitude:{altitude} : {url} : {aResult["date_text"]} : {aResult["title"]}' )
+							if args.openUrl:
+								if n>=2:
+									time.sleep(1)
+								ExecUtil.open( url )
