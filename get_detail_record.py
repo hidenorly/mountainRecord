@@ -126,68 +126,41 @@ class NumUtil:
 		return None
 
 
-class MountainDetailRecordUtil:
-	NUM_OF_CACHE = 1000
-	CACHE_ID = "mountainDetailRecord"
+class ParserBase:
+	TARGET_URL = "DUMMY"
+	def __init__(self):
+		pass
 
-	def __init__(self, url):
-		cache = JsonCache(os.path.join(JsonCache.DEFAULT_CACHE_BASE_DIR, self.CACHE_ID), JsonCache.CACHE_INFINITE, self.NUM_OF_CACHE)
-		self.data = data = cache.restoreFromCache(url)
-		if not data:
-			self.data = data = self.parseRecentRecord(url)
-			cache.storeToCache(url, data)
+	def canHandle(self, recordUrl):
+		return recordUrl.startswith(self.TARGET_URL)
 
-		for key, value in data.items():
-			setattr(self, key, value)
-
-		self.distanceNum = NumUtil.toFloat(self.distance)
-		self.durationMin = MountainDetailRecordUtil.getMinutesFromHHMM(self.actual_duration)
-		self.elavation_up = NumUtil.toFloat(self.elevation_gained)
-		self.elavation_down = NumUtil.toFloat(self.elevation_lost)
-
-	@staticmethod
-	def getMinutesFromHHMM(timeHHMM):
-		result = 0
-
-		if timeHHMM:
-			pos = str(timeHHMM).find(":")
-			if pos!=-1:
-				result = int( timeHHMM[0:pos] ) * 60 + int( timeHHMM[pos+1:] )
-			else:
-				result = int( timeHHMM )
-
-		return result
-
-	def _createBaseResult(self, recordUrl = None):
-		return {
-			'url': recordUrl,
-			'date': None,
-			'title': None,
-			'level': None,
-			'duration': None,
-			'actual_duration': None,
-			'rest_duration': None,
-			'distance': None,
-			'elevation_gained': None,
-			'elevation_lost': None,
-			'pace': None,
-			'weather': None,
-			'access': [],
-			'course_info': None,
-			'impression': None,
-			'photo_captions':[],
-		}
-
-	def parseRecentRecord(self, recordUrl):
-		result = self._createBaseResult(recordUrl)
-		soup = None
+	def parseDate(self, date_text):
+		date_parsed = None
 		try:
-			res = requests.get(recordUrl)
-			if res:
-				soup = BeautifulSoup(res.text, 'html.parser')
+			date_parsed = datetime.strptime(date_text, "%Y/%m/%d").date()
 		except:
 			pass
+		return date_parsed
 
+	def parseRecentRecord(self, soup, result):
+		return result
+
+
+class YamarecoParser(ParserBase):
+	TARGET_URL = "https://www.yamareco.com/"
+
+	def __init__(self):
+		super().__init__()
+
+	def parseDate(self, date_text):
+		date_parsed = None
+		try:
+			date_parsed = datetime.strptime(date_text, '%Y年%m月%d日').date()
+		except:
+			pass
+		return date_parsed
+
+	def parseRecentRecord(self, soup, result):
 		if soup:
 			date = soup.find('div', class_='record-detail-mainimg-bottom-left-title')
 			if date:
@@ -297,6 +270,84 @@ class MountainDetailRecordUtil:
 				impression = impression.get_text().strip()
 				if impression:
 					result['impression']=impression
+
+		return result
+
+
+class MountainDetailRecordUtil:
+	NUM_OF_CACHE = 1000
+	CACHE_ID = "mountainDetailRecord"
+
+	def __init__(self, url):
+		cache = JsonCache(os.path.join(JsonCache.DEFAULT_CACHE_BASE_DIR, self.CACHE_ID), JsonCache.CACHE_INFINITE, self.NUM_OF_CACHE)
+
+		self._parser = None
+		parser = []
+		parser.append( YamarecoParser() )
+		#parser.append( YamapParser() )
+		for aParser in parser:
+			if aParser.canHandle(url):
+				self._parser = aParser
+				break
+
+		self.data = data = cache.restoreFromCache(url)
+		if not data:
+			self.data = data = self.parseRecentRecord(url)
+			cache.storeToCache(url, data)
+
+		for key, value in data.items():
+			setattr(self, key, value)
+
+		self.distanceNum = NumUtil.toFloat(self.distance)
+		self.durationMin = MountainDetailRecordUtil.getMinutesFromHHMM(self.actual_duration)
+		self.elavation_up = NumUtil.toFloat(self.elevation_gained)
+		self.elavation_down = NumUtil.toFloat(self.elevation_lost)
+
+	@staticmethod
+	def getMinutesFromHHMM(timeHHMM):
+		result = 0
+
+		if timeHHMM:
+			pos = str(timeHHMM).find(":")
+			if pos!=-1:
+				result = int( timeHHMM[0:pos] ) * 60 + int( timeHHMM[pos+1:] )
+			else:
+				result = int( timeHHMM )
+
+		return result
+
+	def _createBaseResult(self, recordUrl = None):
+		return {
+			'url': recordUrl,
+			'date': None,
+			'title': None,
+			'level': None,
+			'duration': None,
+			'actual_duration': None,
+			'rest_duration': None,
+			'distance': None,
+			'elevation_gained': None,
+			'elevation_lost': None,
+			'pace': None,
+			'weather': None,
+			'access': [],
+			'course_info': None,
+			'impression': None,
+			'photo_captions':[],
+		}
+
+	def parseRecentRecord(self, recordUrl):
+		result = self._createBaseResult(recordUrl)
+		soup = None
+		try:
+			res = requests.get(recordUrl)
+			if res:
+				soup = BeautifulSoup(res.text, 'html.parser')
+		except:
+			pass
+
+		if soup and self._parser:
+			result = self._parser.parseRecentRecord(soup, result)
 
 		return result
 
