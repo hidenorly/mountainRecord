@@ -105,6 +105,25 @@ class ParserBase:
 			pass
 		return date_parsed
 
+	def parseRecentRecord(self, recordUrl):
+		result = []
+
+		soup = None
+		try:
+			res = requests.get(recordUrl)
+			soup = BeautifulSoup(res.text, 'html.parser')
+		except:
+			pass
+
+		if soup:
+			result = self._parseRecentRecord(soup, result)
+
+		return result
+
+	def _parseRecentRecord(self, soup, result):
+		return result
+
+
 class MountainRecordUtilYamap(ParserBase):
 	TARGET_URL = "https://yamap.com"
 
@@ -119,16 +138,7 @@ class MountainRecordUtilYamap(ParserBase):
 			pass
 		return date_parsed
 
-	def parseRecentRecord(self, recordUrl):
-		result = []
-
-		soup = None
-		try:
-			res = requests.get(recordUrl)
-			soup = BeautifulSoup(res.text, 'html.parser')
-		except:
-			pass
-
+	def _parseRecentRecord(self, soup, result):
 		if soup:
 			activities = soup.find_all('article', class_='MountainActivityItem')
 			if activities:
@@ -188,16 +198,7 @@ class MountainRecordUtilYamareco(ParserBase):
 			pass
 		return date_parsed
 
-	def parseRecentRecord(self, recordUrl):
-		result = []
-
-		soup = None
-		try:
-			res = requests.get(recordUrl)
-			soup = BeautifulSoup(res.text, 'html.parser')
-		except:
-			pass
-
+	def _parseRecentRecord(self, soup, result):
 		if soup:
 			blocks = soup.select('#reclist .block')
 			for block in blocks:

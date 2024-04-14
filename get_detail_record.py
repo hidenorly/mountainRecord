@@ -130,19 +130,6 @@ class MountainDetailRecordUtil:
 	NUM_OF_CACHE = 1000
 	CACHE_ID = "mountainDetailRecord"
 
-	@staticmethod
-	def getMinutesFromHHMM(timeHHMM):
-		result = 0
-
-		if timeHHMM:
-			pos = str(timeHHMM).find(":")
-			if pos!=-1:
-				result = int( timeHHMM[0:pos] ) * 60 + int( timeHHMM[pos+1:] )
-			else:
-				result = int( timeHHMM )
-
-		return result
-
 	def __init__(self, url):
 		cache = JsonCache(os.path.join(JsonCache.DEFAULT_CACHE_BASE_DIR, self.CACHE_ID), JsonCache.CACHE_INFINITE, self.NUM_OF_CACHE)
 		self.data = data = cache.restoreFromCache(url)
@@ -158,8 +145,21 @@ class MountainDetailRecordUtil:
 		self.elavation_up = NumUtil.toFloat(self.elevation_gained)
 		self.elavation_down = NumUtil.toFloat(self.elevation_lost)
 
-	def parseRecentRecord(self, recordUrl):
-		result = {
+	@staticmethod
+	def getMinutesFromHHMM(timeHHMM):
+		result = 0
+
+		if timeHHMM:
+			pos = str(timeHHMM).find(":")
+			if pos!=-1:
+				result = int( timeHHMM[0:pos] ) * 60 + int( timeHHMM[pos+1:] )
+			else:
+				result = int( timeHHMM )
+
+		return result
+
+	def _createBaseResult(self, recordUrl = None):
+		return {
 			'url': recordUrl,
 			'date': None,
 			'title': None,
@@ -177,6 +177,9 @@ class MountainDetailRecordUtil:
 			'impression': None,
 			'photo_captions':[],
 		}
+
+	def parseRecentRecord(self, recordUrl):
+		result = self._createBaseResult(recordUrl)
 		soup = None
 		try:
 			res = requests.get(recordUrl)
