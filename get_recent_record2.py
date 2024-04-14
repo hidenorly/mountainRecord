@@ -252,6 +252,8 @@ class MountainRecordUtilYamareco(ParserBase):
 
 
 class MountainRecordUtil:
+	MOUNTAIN_DIC_PATH = os.path.join( os.path.dirname(os.path.realpath(__file__)), "mountain_dic.json" )
+
 	def __init__(self):
 		self.cache = JsonCache(os.path.join(JsonCache.DEFAULT_CACHE_BASE_DIR, "mountainRecord"), 1)
 
@@ -260,7 +262,8 @@ class MountainRecordUtil:
 		parser.append( MountainRecordUtilYamap() )
 
 		self.mountainDic = {}
-		with open("mountain_dic.json", 'r', encoding='UTF-8') as f:
+
+		with open(self.MOUNTAIN_DIC_PATH, 'r', encoding='UTF-8') as f:
 			self.mountainDic = json.load(f)
 			f.close()
 
