@@ -41,14 +41,15 @@ class JsonCache:
       os.makedirs(self.cacheBaseDir)
 
   def getCacheFilename(self, url):
-    result = url
-    result = re.sub(r'^https?://', '', result) # remove protocol
-    result = re.sub(r'^[a-zA-Z0-9\-_]+\.[a-zA-Z]{2,}', '', result) #remove domain
-    result = re.sub(r'[^a-zA-Z0-9._-]', '_', result) #remove non-character
-    result = result + ".json"
-    if result.startswith("."):
-    	result=result[1:]
-    return result
+  	result = url
+  	result = re.sub(r'^https?://', '', url)
+  	result = re.sub(r'^[a-zA-Z0-9\-_]+\.[a-zA-Z]{2,}', '', result)
+  	result = re.sub(r'[^a-zA-Z0-9._-]', '_', result)
+  	result = re.sub(r'\.', '_', result)
+  	result = re.sub(r'=', '_', result)
+  	result = re.sub(r'#', '_', result)
+  	result = result + ".json"
+  	return result
 
   def getCachePath(self, url):
     return os.path.join(self.cacheBaseDir, self.getCacheFilename(url))
@@ -274,6 +275,77 @@ class YamarecoParser(ParserBase):
 		return result
 
 
+class YamapParser(ParserBase):
+	TARGET_URL = "https://yamap.com"
+
+	def __init__(self):
+		super().__init__()
+
+	def parseDate(self, date_text):
+		date_parsed = None
+		try:
+			date_parsed = datetime.strptime(date_text, '%Y年%m月%d日').date()
+		except:
+			pass
+		return date_parsed
+
+	def parseRecentRecord(self, soup, result):
+		if soup:
+			result["date"] = soup.find('span', class_='ActivityDetailTabLayout__Middle__Date').text.strip()
+			result["title"] = soup.find('h1', class_='ActivityDetailTabLayout__Title').text.strip()
+			result["actual_duration"] = soup.find('p', id='activity-record-value-duration').text.strip()
+			result["distance"] = soup.find('p', id='activity-record-value-distance').text.strip()
+			result["elevation_gained"] = soup.find('p', id='activity-record-value-cumulative-up').text.strip()
+			result["elevation_lost"] = soup.find('p', id='activity-record-value-cumulative-down').text.strip()
+			result["impression"] = soup.find('p', class_='ActivitiesId__Description__Body').text.strip()
+			result["impression"] = re.sub(r'\n', ' ', result["impression"])
+
+			# rest time
+			rest_time_elements = soup.find_all('div', class_='CourseTimeItem__Total__RestTime')
+			rest_hours = 0
+			rest_minutes = 0
+			for rest_time_element in rest_time_elements:
+				time_spans = rest_time_element.find_all('span', class_='CourseTimeItem__Total__Number')
+				if len(time_spans) == 1:
+					minutes = int(time_spans[0].get_text())
+					rest_minutes += minutes
+				elif len(time_spans) == 2:
+					hours = int(time_spans[0].get_text())
+					minutes = int(time_spans[1].get_text())
+					rest_hours += hours
+					rest_minutes += minutes
+				elif len(time_spans) == 4:
+					hours = int(time_spans[0].get_text()) * 10 + int(time_spans[1].get_text())
+					minutes = int(time_spans[2].get_text()) * 10 + int(time_spans[3].get_text())
+					rest_hours += hours
+					rest_minutes += minutes
+			rest_hours += rest_minutes // 60
+			rest_minutes %= 60
+			result["rest_duration"] = f"{rest_hours:02}:{rest_minutes:02}"
+
+			# course time
+			course_time_text = soup.find('p', class_='CourseConstant__CalculateBy').text.strip()
+			if course_time_text:
+				course_time = course_time_text.split()[1]
+				result["duration"] = course_time
+
+			# photo captions
+			photo_captions = []
+			photos = soup.find_all('div', class_='ActivitiesId__Photos')
+			for photo in photos:
+				img_tags = photo.find_all('img')
+				for img_tag in img_tags:
+					alt_text = img_tag.get('alt', '').strip()
+					pos = alt_text.find(" ")
+					if pos!=-1:
+						alt_text = alt_text[pos+1:].strip()
+					if alt_text:
+						photo_captions.append(alt_text)
+			result["photo_captions"] = photo_captions
+
+		return result
+
+
 class MountainDetailRecordUtil:
 	NUM_OF_CACHE = 1000
 	CACHE_ID = "mountainDetailRecord"
@@ -284,7 +356,7 @@ class MountainDetailRecordUtil:
 		self._parser = None
 		parser = []
 		parser.append( YamarecoParser() )
-		#parser.append( YamapParser() )
+		parser.append( YamapParser() )
 		for aParser in parser:
 			if aParser.canHandle(url):
 				self._parser = aParser
@@ -293,7 +365,8 @@ class MountainDetailRecordUtil:
 		self.data = data = cache.restoreFromCache(url)
 		if not data:
 			self.data = data = self.parseRecentRecord(url)
-			cache.storeToCache(url, data)
+			if self._parser and data["date"]:
+				cache.storeToCache(url, data)
 
 		for key, value in data.items():
 			setattr(self, key, value)
