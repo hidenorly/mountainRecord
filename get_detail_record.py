@@ -291,14 +291,29 @@ class YamapParser(ParserBase):
 
 	def parseRecentRecord(self, soup, result):
 		if soup:
-			result["date"] = soup.find('span', class_='ActivityDetailTabLayout__Middle__Date').text.strip()
-			result["title"] = soup.find('h1', class_='ActivityDetailTabLayout__Title').text.strip()
-			result["actual_duration"] = soup.find('p', id='activity-record-value-duration').text.strip()
-			result["distance"] = soup.find('p', id='activity-record-value-distance').text.strip()
-			result["elevation_gained"] = soup.find('p', id='activity-record-value-cumulative-up').text.strip()
-			result["elevation_lost"] = soup.find('p', id='activity-record-value-cumulative-down').text.strip()
-			result["impression"] = soup.find('p', class_='ActivitiesId__Description__Body').text.strip()
-			result["impression"] = re.sub(r'\n', ' ', result["impression"])
+			date_text = soup.find('span', class_='ActivityDetailTabLayout__Middle__Date')
+			if date_text:
+				result["date"] = date_text.text.strip()
+			title_text = soup.find('h1', class_='ActivityDetailTabLayout__Title')
+			if title_text:
+				result["title"] = title_text.text.strip()
+			duration_text = soup.find('p', id='activity-record-value-duration')
+			if duration_text:
+				result["actual_duration"] = duration_text.text.strip()
+			distance_text = soup.find('p', id='activity-record-value-distance')
+			if distance_text:
+				result["distance"] = distance_text.text.strip()
+			elevation_gained = soup.find('p', id='activity-record-value-cumulative-up')
+			if elevation_gained:
+				result["elevation_gained"] = elevation_gained.text.strip()
+			elevation_lost = soup.find('p', id='activity-record-value-cumulative-down')
+			if elevation_lost:
+				result["elevation_lost"] = elevation_lost.text.strip()
+			impression = soup.find('p', class_='ActivitiesId__Description__Body')
+			if impression:
+				impression = impression.text.strip()
+				impression = re.sub(r'\n', ' ', impression)
+				result["impression"] = impression
 
 			# rest time
 			rest_time_elements = soup.find_all('div', class_='CourseTimeItem__Total__RestTime')
@@ -306,15 +321,16 @@ class YamapParser(ParserBase):
 			rest_minutes = 0
 			for rest_time_element in rest_time_elements:
 				time_spans = rest_time_element.find_all('span', class_='CourseTimeItem__Total__Number')
-				if len(time_spans) == 1:
+				len_time_spans = len(time_spans)
+				if len_time_spans == 1:
 					minutes = int(time_spans[0].get_text())
 					rest_minutes += minutes
-				elif len(time_spans) == 2:
+				elif len_time_spans == 2:
 					hours = int(time_spans[0].get_text())
 					minutes = int(time_spans[1].get_text())
 					rest_hours += hours
 					rest_minutes += minutes
-				elif len(time_spans) == 4:
+				elif len_time_spans == 4:
 					hours = int(time_spans[0].get_text()) * 10 + int(time_spans[1].get_text())
 					minutes = int(time_spans[2].get_text()) * 10 + int(time_spans[3].get_text())
 					rest_hours += hours
