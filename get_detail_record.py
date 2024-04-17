@@ -115,6 +115,7 @@ class JsonCache:
 
 class NumUtil:
 	def toFloat(inStr):
+		inStr = re.sub(r',', "", str(inStr))
 		pattern = r'(\d+\.\d+)'
 		match = re.search(pattern, str(inStr))
 		if match:
@@ -155,6 +156,9 @@ class YamarecoParser(ParserBase):
 
 	def parseDate(self, date_text):
 		date_parsed = None
+		pos = date_text.find("(")
+		if pos!=-1:
+			date_text = date_text[0:pos]
 		try:
 			date_parsed = datetime.strptime(date_text, '%Y年%m月%d日').date()
 		except:
@@ -283,8 +287,11 @@ class YamapParser(ParserBase):
 
 	def parseDate(self, date_text):
 		date_parsed = None
+		pos = date_text.find("(")
+		if pos!=-1:
+			date_text = date_text[0:pos]
 		try:
-			date_parsed = datetime.strptime(date_text, '%Y年%m月%d日').date()
+			date_parsed = datetime.strptime(date_text, '%Y.%m.%d').date()
 		except:
 			pass
 		return date_parsed
@@ -389,8 +396,11 @@ class MountainDetailRecordUtil:
 
 		self.distanceNum = NumUtil.toFloat(self.distance)
 		self.durationMin = MountainDetailRecordUtil.getMinutesFromHHMM(self.actual_duration)
-		self.elavation_up = NumUtil.toFloat(self.elevation_gained)
-		self.elavation_down = NumUtil.toFloat(self.elevation_lost)
+		self.elevation_up = NumUtil.toFloat(self.elevation_gained)
+		self.elevation_down = NumUtil.toFloat(self.elevation_lost)
+		self.date_parsed = self.date
+		if self._parser and self.date:
+			self.date_parsed = self._parser.parseDate(self.date)
 
 	@staticmethod
 	def getMinutesFromHHMM(timeHHMM):
@@ -441,7 +451,7 @@ class MountainDetailRecordUtil:
 		return result
 
 	def isValid(self):
-		result = (self.duration != None) and (self.distance != None) and (self.photo_captions)
+		result = (self.duration != None) and (self.distance != None)
 		return result
 
 
@@ -488,6 +498,7 @@ if __name__=="__main__":
 	parser.add_argument('-1', '--oneway', action='store_true', default=False, help='specify if you want non-piston (one-way) record')
 	parser.add_argument('-o', '--openUrl', action='store_true', default=False, help='specify if you want to open the url')
 	parser.add_argument('-c', '--clearCache', action='store_true', default=False, help='specify if you want to execute with clearing cache')
+	parser.add_argument('-w', '--oneline', action='store_true', default=False, help='specify if you want to print as oneline manner')
 
 	args = parser.parse_args()
 
@@ -515,27 +526,29 @@ if __name__=="__main__":
 		if anInfo.durationMin and ( (minDurationMin and anInfo.durationMin < minDurationMin ) or (maxDurationMin and anInfo.durationMin > maxDurationMin ) ):
 			continue
 		# Filter out elevation
-		if anInfo.elavation_up and ( (args.elevationMin and anInfo.elavation_up < args.elevationMin ) or (args.elevationMax and anInfo.elavation_up > args.elevationMax ) ):
+		if anInfo.elevation_up and ( (args.elevationMin and anInfo.elevation_up < args.elevationMin ) or (args.elevationMax and anInfo.elevation_up > args.elevationMax ) ):
 			continue
 		# Filter out piston
-		if anInfo.elavation_up and anInfo.elavation_down:
-			delta = abs(anInfo.elavation_up-anInfo.elavation_down)
-			threshold = min(anInfo.elavation_up,anInfo.elavation_down)*0.1
+		if anInfo.elevation_up and anInfo.elevation_down:
+			delta = abs(anInfo.elevation_up-anInfo.elevation_down)
+			threshold = min(anInfo.elevation_up,anInfo.elevation_down)*0.1
 			if not (args.piston and args.oneway):
 				if ( args.piston and delta > threshold ) or ( args.oneway and delta < threshold ):
 					continue
 
-		if i>0:
-			print("")
-
-		for key, value in anInfo.data.items():
-			if not key in args.filterOut:
-				if isinstance(value, list):
-					print(f'{StrUtil.ljust_jp(key, 20)}\t:')
-					for aValue in value:
-						print(f'{StrUtil.ljust_jp("", 20)}\t: {aValue}')
-				else:
-					print(f'{StrUtil.ljust_jp(key, 20)}\t: {value}')
+		if args.oneline:
+			print(f'{anInfo.date_parsed}  {StrUtil.ljust_jp(str(anInfo.distance), 6)}  {StrUtil.ljust_jp(str(anInfo.actual_duration), 6)} {StrUtil.ljust_jp(str(anInfo.elevation_up), 6)} {StrUtil.ljust_jp(str(anInfo.elevation_down), 6)}  {StrUtil.ljust_jp(str(anInfo.url),61)}  {anInfo.title}')
+		else:
+			if i>0:
+				print("")
+			for key, value in anInfo.data.items():
+				if not key in args.filterOut:
+					if isinstance(value, list):
+						print(f'{StrUtil.ljust_jp(key, 20)}\t:')
+						for aValue in value:
+							print(f'{StrUtil.ljust_jp("", 20)}\t: {aValue}')
+					else:
+						print(f'{StrUtil.ljust_jp(key, 20)}\t: {value}')
 
 		if args.openUrl:
 			if i>=1:
