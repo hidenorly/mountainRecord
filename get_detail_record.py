@@ -269,6 +269,14 @@ class YamarecoParser(ParserBase):
 				pace = pace.get_text().strip()
 				if pace:
 					result['pace']=pace
+			if result['pace'] and result['actual_duration']:
+				pace = NumUtil.toFloat(result['pace'])
+				actual_duration = MountainDetailRecordUtil.getMinutesFromHHMM(result['actual_duration'])
+				if pace and actual_duration:
+					standard_duration = actual_duration / pace
+					hour = int(standard_duration/60)
+					minutes = int(standard_duration % 60)
+					result['duration'] = f"{hour:02}:{minutes:02}"
 
 			impression = soup.find('div', class_='impression-txt')
 			if impression:
@@ -351,6 +359,13 @@ class YamapParser(ParserBase):
 			if course_time_text:
 				course_time = course_time_text.split()[1]
 				result["duration"] = course_time
+
+			if result["actual_duration"] and result["duration"] and result["rest_duration"]:
+				actual_duration = MountainDetailRecordUtil.getMinutesFromHHMM(result["actual_duration"])
+				rest_duration = MountainDetailRecordUtil.getMinutesFromHHMM(result["rest_duration"])
+				standard_duration = MountainDetailRecordUtil.getMinutesFromHHMM(result["duration"])
+				if actual_duration and standard_duration:
+					result["pace"] = float(int((float(actual_duration - rest_duration) / float(standard_duration))*100))/100.0
 
 			# photo captions
 			photo_captions = []
@@ -537,7 +552,7 @@ if __name__=="__main__":
 					continue
 
 		if args.oneline:
-			print(f'{anInfo.date_parsed}  {StrUtil.ljust_jp(str(anInfo.distance), 6)}  {StrUtil.ljust_jp(str(anInfo.actual_duration), 6)} {StrUtil.ljust_jp(str(anInfo.elevation_up), 6)} {StrUtil.ljust_jp(str(anInfo.elevation_down), 6)}  {StrUtil.ljust_jp(str(anInfo.url),61)}  {anInfo.title}')
+			print(f'{anInfo.date_parsed}  {StrUtil.ljust_jp(str(anInfo.distance), 6)}  {StrUtil.ljust_jp(str(anInfo.duration), 6)} {StrUtil.ljust_jp(str(anInfo.elevation_up), 6)} {StrUtil.ljust_jp(str(anInfo.elevation_down), 6)}  {StrUtil.ljust_jp(str(anInfo.url),61)}  {anInfo.title}')
 		else:
 			if i>0:
 				print("")
