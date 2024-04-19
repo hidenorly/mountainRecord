@@ -525,7 +525,10 @@ if __name__=="__main__":
 	minDurationMin = MountainDetailRecordUtil.getMinutesFromHHMM(args.minTime)
 
 	i = 0
+	urlList={}
 	for aUrl in args.args:
+		urlList[aUrl] = aUrl
+	for aUrl in urlList.keys():
 		anInfo = MountainDetailRecordUtil(aUrl)
 
 		# Filter out non-parsable case (login required, etc.)
