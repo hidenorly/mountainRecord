@@ -12,19 +12,20 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+import mountainDic
 import mountainDic_yamap
 import re
 import json
 
-if __name__=="__main__":
-	dic = mountainDic_yamap.getMountainDic()
-
+def mountainDicArray_to_Hash(dic, _mountainDic = None):
 	mountainUrls = {}
 	for aMountain in dic:
 		if aMountain["url"]:
 			mountainUrls[ aMountain["url"] ] = aMountain
 
-	_mountainDic = {}
+	if not _mountainDic:
+		_mountainDic = {}
+
 	for url, aMountain in mountainUrls.items():
 		# support alternative mountain name
 		mountainName = aMountain["name"]
@@ -45,6 +46,13 @@ if __name__=="__main__":
 					_mountainDic[ mountainName ] = []
 				_mountainDic[ mountainName ].append( aMountain )
 
-	with open("yamap_dic.json", 'w', encoding='UTF-8') as f:
+	return _mountainDic
+
+if __name__=="__main__":
+	_mountainDic = {}
+	_mountainDic = mountainDicArray_to_Hash( mountainDic.getMountainDic(), _mountainDic )
+	_mountainDic = mountainDicArray_to_Hash( mountainDic_yamap.getMountainDic(), _mountainDic )
+
+	with open("mountain_dic.json", 'w', encoding='UTF-8') as f:
 		json.dump(_mountainDic, f, indent = 4, ensure_ascii=False)
 		f.close()
