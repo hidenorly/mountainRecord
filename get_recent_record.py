@@ -18,30 +18,28 @@ import sys
 import subprocess
 import shlex
 import time
+import json
+import itertools
+import os
 
 class MountainRecordUtil:
+	MOUNTAIN_DIC_PATH = os.path.join( os.path.dirname(os.path.realpath(__file__)), "mountain_dic.json" )
+
 	def __init__(self):
-		dic = mountainDic.getMountainDic()
+		self.mountainDic = {}
 
-		mountainUrls = {}
-		for aMountain in dic:
-			if aMountain["url"]:
-				mountainUrls[ aMountain["url"] ] = aMountain
-
-			self.mountainDic = {}
-			for url, aMountain in mountainUrls.items():
-				if not aMountain["name"] in self.mountainDic:
-					self.mountainDic[ aMountain["name"] ] = []
-				self.mountainDic[ aMountain["name"] ].append( aMountain )
+		with open(self.MOUNTAIN_DIC_PATH, 'r', encoding='UTF-8') as f:
+			self.mountainDic = json.load(f)
+			f.close()
 
 	def getMountainsWithMountainNameFallback(self, mountainName):
-		result = []
+		result = {}
 		for theMountainName, theMountains in self.mountainDic.items():
 			for theMountain in theMountains:
 				if theMountain["name"].find(mountainName)!=-1 or theMountain["yomi"].find(mountainName)!=-1:
-					result.append( theMountain )
-		return result
+					result[theMountain["name"]] = theMountain
 
+		return result.values()
 
 	def getMountainsWithMountainName(self, mountainName):
 		result = []
