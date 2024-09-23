@@ -355,10 +355,12 @@ class YamapParser(ParserBase):
 			result["rest_duration"] = f"{rest_hours:02}:{rest_minutes:02}"
 
 			# course time
-			course_time_text = soup.find('p', class_='CourseConstant__CalculateBy').text.strip()
-			if course_time_text:
-				course_time = course_time_text.split()[1]
-				result["duration"] = course_time
+			course_time = soup.find('p', class_='CourseConstant__CalculateBy')
+			if course_time:
+				if "text" in course_time:
+					course_time_text = cource_time.text.strip()
+					course_time = course_time_text.split()[1]
+					result["duration"] = course_time
 
 			if result["actual_duration"] and result["duration"] and result["rest_duration"]:
 				actual_duration = MountainDetailRecordUtil.getMinutesFromHHMM(result["actual_duration"])
