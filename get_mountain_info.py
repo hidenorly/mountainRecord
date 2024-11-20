@@ -36,6 +36,9 @@ class ParserMountainInfoBase:
 	def canHandle(self, recordUrl):
 		return recordUrl.startswith(self.TARGET_URL)
 
+	def _getBaseResult(self):
+		return { "altitude":None, "location":None,  "category":[], "description":"" }
+
 	def parseMountainInfo(self, recordUrl):
 		result = []
 
@@ -62,49 +65,37 @@ class MountainInfoUtilYamap(ParserMountainInfoBase):
 		super().__init__()
 
 	def _parseMountainInfo(self, soup, result):
+		result = self._getBaseResult()
+
 		if soup:
-			activities = soup.find_all('article', class_='MountainActivityItem')
-			if activities:
-				for activity in activities:
-					date_text = 'N/A'
-					date_parsed = None
-					title = activity.find('h3', class_='MountainActivityItem__Heading')
-					if title:
-						title = title.text.strip()
-					_date = activity.find('span', class_='MountainActivityItem__Date')
-					if _date:
-						_date = _date.text.strip()
-					duration = activity.find_all('span', class_='ActivityCounters__Count__Record')
-					if duration:
-						duration = duration[0].text.strip()
-					distance = activity.find_all('span', class_='ActivityCounters__Count__Record')
-					if distance:
-						if len(distance)>=2:
-							distance = distance[1].text.strip().split()[0]
-					elevation = activity.find_all('span', class_='ActivityCounters__Count__Record')
-					if elevation:
-						if len(elevation)>=3:
-							elevation=elevation[2].text.strip().split()[0]
-					url = activity.find('a', class_='MountainActivityItem__Thumbnail')
-					if url:
-						url = "https://yamap.com"+url['href']
+			# highlights
+			highlights = soup.select('ul.Mountain__BasicInfo__Highlights li')
+			if highlights:
+				for li in highlights:
+					highlight_texts = li.get_text(strip=True)
+					result["description"] += f"* {highlight_texts}\n"
 
-					if _date:
-						date_text = _date.split('(')[0]
-						date_parsed = self.parseDate(date_text)
+			# description
+			description = soup.select_one('p.Mountain__BasicInfo__Description span')
+			if description:
+				description_text = description.get_text(strip=True)
+				result["description"] += description_text
 
-					aData = {
-						"title": title,
-						'date_text': date_text,
-						'date': date_parsed,
-						"duration": duration,
-						"distance": distance,
-						"elevation": elevation,
-						"url": url
-					}
+			# altitude
+			altitude = soup.select_one('p.MountainInformationSlider__Altitude')
+			if altitude:
+				altitude_text = altitude.get_text(strip=True)
+				if altitude_text:
+					result["altitude"] = altitude_text
 
-					if aData['date'] and aData['url']!="N/A":
-						result.append( aData )
+			# category
+			area_texts = soup.find_all('a', class_='MountainInformationSlider__Area__Text')
+			if area_texts:
+				for a in area_texts:
+					href = a.get("href")
+					if href and href.startswith("/mountains/famous/"):
+						result["category"].append( a.get_text(strip=True) )
+
 		return result
 
 
@@ -115,7 +106,7 @@ class MountainInfoUtilYamareco(ParserMountainInfoBase):
 		super().__init__()
 
 	def _parseMountainInfo(self, soup, result):
-		result = { "altitude":None, "location":None,  "category":[], "description":"" }
+		result = self._getBaseResult()
 
 		if soup:
 			# category
@@ -184,6 +175,7 @@ if __name__=="__main__":
 
 	parsers = []
 	parsers.append( MountainInfoUtilYamareco() )
+	parsers.append( MountainInfoUtilYamap() )
 
 	for aMountainName in args.args:
 		result = recUtil.getMountainsWithMountainName( aMountainName )
