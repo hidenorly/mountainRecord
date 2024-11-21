@@ -23,15 +23,19 @@ import itertools
 import os
 from get_recent_record import MountainRecordUtil
 from get_detail_record import StrUtil
+from get_detail_record import JsonCache
 
 import requests
 from bs4 import BeautifulSoup
-from bs4.element import Tag
 
 class ParserMountainInfoBase:
 	TARGET_URL = "DUMMY"
-	def __init__(self):
-		pass
+
+	NUM_OF_CACHE = 1000
+	CACHE_ID = "mountainInfo"
+
+	def __init__(self, cache):
+		self.cache = cache
 
 	def canHandle(self, recordUrl):
 		return recordUrl.startswith(self.TARGET_URL)
@@ -40,17 +44,19 @@ class ParserMountainInfoBase:
 		return { "altitude":None, "location":None,  "category":[], "description":"" }
 
 	def parseMountainInfo(self, recordUrl):
-		result = []
+		result = self.cache.restoreFromCache(recordUrl)
+		if not result:
+			result = self._getBaseResult()
+			soup = None
+			try:
+				res = requests.get(recordUrl)
+				soup = BeautifulSoup(res.text, 'html.parser')
+			except:
+				pass
 
-		soup = None
-		try:
-			res = requests.get(recordUrl)
-			soup = BeautifulSoup(res.text, 'html.parser')
-		except:
-			pass
-
-		if soup:
-			result = self._parseMountainInfo(soup, result)
+			if soup:
+				result = self._parseMountainInfo(soup, result)
+				self.cache.storeToCache(recordUrl, result)
 
 		return result
 
@@ -61,12 +67,10 @@ class ParserMountainInfoBase:
 class MountainInfoUtilYamap(ParserMountainInfoBase):
 	TARGET_URL = "https://yamap.com"
 
-	def __init__(self):
-		super().__init__()
+	def __init__(self, cache):
+		super().__init__(cache)
 
 	def _parseMountainInfo(self, soup, result):
-		result = self._getBaseResult()
-
 		if soup:
 			# highlights
 			highlights = soup.select('ul.Mountain__BasicInfo__Highlights li')
@@ -102,12 +106,10 @@ class MountainInfoUtilYamap(ParserMountainInfoBase):
 class MountainInfoUtilYamareco(ParserMountainInfoBase):
 	TARGET_URL = "https://www.yamareco.com/"
 
-	def __init__(self):
-		super().__init__()
+	def __init__(self, cache):
+		super().__init__(cache)
 
 	def _parseMountainInfo(self, soup, result):
-		result = self._getBaseResult()
-
 		if soup:
 			# category
 			links = soup.find_all('a', class_='cate_link ov')
@@ -158,12 +160,13 @@ def dump_per_category(result):
 	for key in result.keys():
 		max_len = max(max_len, len(key))
 	for key, value in result.items():
-		if isinstance(value,list):
-			print(f"{StrUtil.ljust_jp(key, max_len)}:")
-			for _val in value:
-				print(f"{" "*max_len}  {_val}")
-		else:
-			print(f"{StrUtil.ljust_jp(key, max_len)}: {value}")
+		if value:
+			if isinstance(value,list):
+				print(f"{StrUtil.ljust_jp(key, max_len)}:")
+				for _val in value:
+					print(f"{" "*max_len}  {_val}")
+			else:
+				print(f"{StrUtil.ljust_jp(key, max_len)}: {value}")
 
 
 if __name__=="__main__":
@@ -173,9 +176,10 @@ if __name__=="__main__":
 	args = parser.parse_args()
 	recUtil = MountainRecordUtil()
 
+	cache = JsonCache(os.path.join(JsonCache.DEFAULT_CACHE_BASE_DIR, ParserMountainInfoBase.CACHE_ID), JsonCache.CACHE_INFINITE, ParserMountainInfoBase.NUM_OF_CACHE)
 	parsers = []
-	parsers.append( MountainInfoUtilYamareco() )
-	parsers.append( MountainInfoUtilYamap() )
+	parsers.append( MountainInfoUtilYamareco(cache) )
+	parsers.append( MountainInfoUtilYamap(cache) )
 
 	for aMountainName in args.args:
 		result = recUtil.getMountainsWithMountainName( aMountainName )
