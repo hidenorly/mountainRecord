@@ -22,8 +22,7 @@ import json
 import itertools
 import os
 from get_recent_record import MountainRecordUtil
-from get_detail_record import StrUtil
-from get_detail_record import JsonCache
+from get_detail_record import StrUtil, JsonCache
 
 import requests
 from bs4 import BeautifulSoup
@@ -169,24 +168,41 @@ def dump_per_category(result):
 				print(f"{StrUtil.ljust_jp(key, max_len)}: {value}")
 
 
+class MountainInfo:
+	def __init__(self):
+		self.recUtil = recUtil = MountainRecordUtil()
+		self.cache = cache = JsonCache(os.path.join(JsonCache.DEFAULT_CACHE_BASE_DIR, ParserMountainInfoBase.CACHE_ID), JsonCache.CACHE_INFINITE, ParserMountainInfoBase.NUM_OF_CACHE)
+
+		self.parsers = parsers = []
+		parsers.append( MountainInfoUtilYamareco(cache) )
+		parsers.append( MountainInfoUtilYamap(cache) )
+
+	def get(self, mountainNames):
+		results = {}
+
+		for aMountainName in mountainNames:
+			_mountains = self.recUtil.getMountainsWithMountainName( aMountainName )
+			for aMountain in _mountains:
+				for parser in self.parsers:
+					if parser.canHandle(aMountain["url"]):
+						_detailInfo = parser.parseMountainInfo(aMountain["url"])
+						aMountain.update(_detailInfo)
+						if not aMountainName in results:
+							results[aMountainName] = []
+						results[aMountainName].append( aMountain )
+
+		return results
+
+
+
 if __name__=="__main__":
 	parser = argparse.ArgumentParser(description='Specify mountainNames')
 	parser.add_argument('args', nargs='*', help='mountain names')
 
 	args = parser.parse_args()
-	recUtil = MountainRecordUtil()
+	info = MountainInfo()
+	results = info.get(args.args)
+	for mountain_name, infos in results.items():
+		for info in infos:
+			dump_per_category(info)
 
-	cache = JsonCache(os.path.join(JsonCache.DEFAULT_CACHE_BASE_DIR, ParserMountainInfoBase.CACHE_ID), JsonCache.CACHE_INFINITE, ParserMountainInfoBase.NUM_OF_CACHE)
-	parsers = []
-	parsers.append( MountainInfoUtilYamareco(cache) )
-	parsers.append( MountainInfoUtilYamap(cache) )
-
-	for aMountainName in args.args:
-		result = recUtil.getMountainsWithMountainName( aMountainName )
-		for aMountain in result:
-			for parser in parsers:
-				if parser.canHandle(aMountain["url"]):
-					_detailInfo = parser.parseMountainInfo(aMountain["url"])
-					aMountain.update(_detailInfo)
-					dump_per_category(aMountain)
-					print("")
