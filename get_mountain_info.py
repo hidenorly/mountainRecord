@@ -22,7 +22,8 @@ import json
 import itertools
 import os
 from get_recent_record import MountainRecordUtil
-from get_detail_record import StrUtil, JsonCache
+from get_detail_record import StrUtil, NumUtil, JsonCache
+
 
 import requests
 from bs4 import BeautifulSoup
@@ -177,10 +178,10 @@ class MountainInfo:
 		parsers.append( MountainInfoUtilYamareco(cache) )
 		parsers.append( MountainInfoUtilYamap(cache) )
 
-	def get(self, mountainNames):
+	def get(self, mountain_names):
 		results = {}
 
-		for aMountainName in mountainNames:
+		for aMountainName in mountain_names:
 			_mountains = self.recUtil.getMountainsWithMountainName( aMountainName )
 			for aMountain in _mountains:
 				for parser in self.parsers:
@@ -194,15 +195,52 @@ class MountainInfo:
 		return results
 
 
+	def getWithCondition(self, mountain_names, min_altitude=0, max_altitude=9000, categories=[]):
+		results = {}
+
+		for aMountainName in mountain_names:
+			_mountains = self.recUtil.getMountainsWithMountainName( aMountainName )
+			for aMountain in _mountains:
+				altitude = NumUtil.toFloat(aMountain["altitude"])
+				if altitude==None or altitude>=min_altitude and altitude<=max_altitude:
+					for parser in self.parsers:
+						if parser.canHandle(aMountain["url"]):
+							_detailInfo = parser.parseMountainInfo(aMountain["url"])
+							aMountain.update(_detailInfo)
+							if not aMountainName in results:
+								results[aMountainName] = []
+							is_found = False
+							if not categories:
+								is_found = True
+							if not is_found and categories:
+								for category in categories:
+									if category in aMountain["category"]:
+										is_found = True
+										break
+							if is_found:
+								results[aMountainName].append( aMountain )
+
+		return results
+
+
+
 
 if __name__=="__main__":
-	parser = argparse.ArgumentParser(description='Specify mountainNames')
+	parser = argparse.ArgumentParser(description='Specify mountain names')
 	parser.add_argument('args', nargs='*', help='mountain names')
+
+	parser.add_argument('-g', '--altitudeMin', action='store', default=0, type=int, help='Min altitude')
+	parser.add_argument('-u', '--altitudeMax', action='store', default=9000, type=int, help='Max altitude')
+	parser.add_argument('-c', '--category', action='store', default="", help='Specify category e.g.日本百名山|100名山 if necessary')
 
 	args = parser.parse_args()
 	info = MountainInfo()
-	results = info.get(args.args)
+	categories = []
+	if args.category:
+		categories=str(args.category).split("|")
+	results = info.getWithCondition(args.args, args.altitudeMin, args.altitudeMax, categories)
 	for mountain_name, infos in results.items():
 		for info in infos:
 			dump_per_category(info)
+			print("")
 
