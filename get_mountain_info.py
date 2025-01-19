@@ -1,4 +1,4 @@
-#   Copyright 2024 hidenorly
+#   Copyright 2024, 2025 hidenorly
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -217,6 +217,12 @@ class MountainInfo:
 									if category in aMountain["category"]:
 										is_found = True
 										break
+									else:
+										for _mountain in aMountain["category"]:
+											if _mountain.startswith(category):
+												is_found = True
+												break
+
 							if is_found:
 								results[aMountainName].append( aMountain )
 
