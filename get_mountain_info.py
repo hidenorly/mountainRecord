@@ -23,6 +23,7 @@ import itertools
 import os
 from get_recent_record import MountainRecordUtil
 from get_detail_record import StrUtil, NumUtil, JsonCache
+from get_recent_record2 import ExecUtil
 
 
 import requests
@@ -238,6 +239,7 @@ if __name__=="__main__":
 	parser.add_argument('-g', '--altitudeMin', action='store', default=0, type=int, help='Min altitude')
 	parser.add_argument('-u', '--altitudeMax', action='store', default=9000, type=int, help='Max altitude')
 	parser.add_argument('-c', '--category', action='store', default="", help='Specify category e.g.日本百名山|100名山 if necessary')
+	parser.add_argument('-o', '--openUrl', action='store_true', default=False, help='specify if you want to open the url')
 
 	args = parser.parse_args()
 	info = MountainInfo()
@@ -245,8 +247,15 @@ if __name__=="__main__":
 	if args.category:
 		categories=str(args.category).split("|")
 	results = info.getWithCondition(args.args, args.altitudeMin, args.altitudeMax, categories)
+	n = 0
 	for mountain_name, infos in results.items():
 		for info in infos:
 			dump_per_category(info)
 			print("")
+			if "url" in info:
+				if args.openUrl:
+					if n>=1:
+						time.sleep(1)
+					ExecUtil.open( info["url"] )
+					n = n + 1
 
