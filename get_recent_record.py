@@ -1,4 +1,4 @@
-#   Copyright 2024 hidenorly
+#   Copyright 2024, 2025 hidenorly
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ class ExecUtil:
 
 if __name__=="__main__":
 	parser = argparse.ArgumentParser(description='Specify mountainNames')
-	parser.add_argument('args', nargs='*', help='url encoded strings')
+	parser.add_argument('args', nargs='*', help='mountain names')
 	parser.add_argument('-nd', '--urlOnly', action='store_true', default=False, help='specify if you want to print url only')
 	parser.add_argument('-o', '--openUrl', action='store_true', default=False, help='specify if you want to open the url')
 
