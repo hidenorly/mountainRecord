@@ -433,6 +433,12 @@ class ExecUtil:
     result = subprocess.run(exec_cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
     return result
 
+def shoudHandleUrl(url, providers):
+	for provider in providers:
+		if provider in url:
+			return True
+	return False
+
 
 if __name__=="__main__":
 	parser = argparse.ArgumentParser(description='Specify mountainNames', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -446,10 +452,12 @@ if __name__=="__main__":
 
 	parser.add_argument('-g', '--altitudeMin', action='store', default=0, type=int, help='Min altitude')
 	parser.add_argument('-u', '--altitudeMax', action='store', default=9000, type=int, help='Max altitude')
+	parser.add_argument('-p', '--providers', action='store', default="yamareco|yamap", help='Provider yamareco|yamap')
 
 	args = parser.parse_args()
 	recUtil = MountainRecordUtil()
 	today = datetime.now().date()
+	providers = args.providers.split("|")
 
 	mountains = MountainFilterUtil.mountainsIncludeExcludeFromFile( set(args.args), args.exclude, args.include )
 	mountainList=[]
@@ -460,20 +468,21 @@ if __name__=="__main__":
 	for aMountain in mountainList:
 		altitude = MountainFilterUtil.getAltitude( aMountain["altitude"] )
 		if altitude>=args.altitudeMin and altitude<=args.altitudeMax:
-			results = recUtil.parseRecentRecord( aMountain["url"] )
-			n = 0
-			for aResult in results:
-				if aResult and ("date" in aResult) and aResult["date"]:
-					date_diff = today - aResult["date"]
-					if date_diff.days < args.filterDays:
-						n=n+1
-						if n<=args.numOpen:
-							url = aResult["url"]
-							if args.urlOnly:
-								print( url )
-							else:
-								print( f'name:{aMountain["name"]}, yomi:{aMountain["yomi"]}, altitude:{altitude} : {url} : {aResult["date_text"]} : {aResult["title"]}' )
-							if args.openUrl:
-								if n>=2:
-									time.sleep(1)
-								ExecUtil.open( url )
+			if shoudHandleUrl(aMountain["url"], providers):
+				results = recUtil.parseRecentRecord( aMountain["url"] )
+				n = 0
+				for aResult in results:
+					if aResult and ("date" in aResult) and aResult["date"]:
+						date_diff = today - aResult["date"]
+						if date_diff.days < args.filterDays:
+							n=n+1
+							if n<=args.numOpen:
+								url = aResult["url"]
+								if args.urlOnly:
+									print( url )
+								else:
+									print( f'name:{aMountain["name"]}, yomi:{aMountain["yomi"]}, altitude:{altitude} : {url} : {aResult["date_text"]} : {aResult["title"]}' )
+								if args.openUrl:
+									if n>=2:
+										time.sleep(1)
+									ExecUtil.open( url )
