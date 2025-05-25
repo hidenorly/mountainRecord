@@ -21,48 +21,7 @@ import time
 import json
 import itertools
 import os
-
-class MountainRecordUtil:
-	MOUNTAIN_DIC_PATH = os.path.join( os.path.dirname(os.path.realpath(__file__)), "mountain_dic.json" )
-
-	def __init__(self):
-		self.mountainDic = {}
-
-		with open(self.MOUNTAIN_DIC_PATH, 'r', encoding='UTF-8') as f:
-			self.mountainDic = json.load(f)
-			f.close()
-
-	def getMountainsWithMountainNameFallback(self, mountainName):
-		result = {}
-		for theMountainName, theMountains in self.mountainDic.items():
-			for theMountain in theMountains:
-				if theMountain["name"].find(mountainName)!=-1 or theMountain["yomi"].find(mountainName)!=-1:
-					result[theMountain["name"]] = theMountain
-
-		return result.values()
-
-	def getMountainsWithMountainName(self, mountainName):
-		result = []
-		if mountainName in self.mountainDic:
-			result = self.mountainDic[ mountainName ]
-		# fallback
-		if not result:
-			result = self.getMountainsWithMountainNameFallback(mountainName)
-		return result
-
-class ExecUtil:
-  @staticmethod
-  def _getOpen():
-    result = "open"
-    if sys.platform.startswith('win'):
-      result = "start"
-    return result
-
-  @staticmethod
-  def open(url):
-    exec_cmd = f'{ExecUtil._getOpen()} {shlex.quote(url)}'
-    result = subprocess.run(exec_cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
-    return result
+from mountainRecordUtil import ExecUtil, MountainRecordUtil
 
 
 if __name__=="__main__":

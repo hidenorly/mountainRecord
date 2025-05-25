@@ -27,67 +27,8 @@ import re
 import copy
 import time
 import shlex
+from mountainRecordUtil import JsonCache, NumUtil, StrUtil, ExecUtil
 
-class JsonCache:
-  DEFAULT_CACHE_BASE_DIR = os.path.expanduser("~")+"/.cache"
-  DEFAULT_CACHE_EXPIRE_HOURS = 1 # an hour
-
-  def __init__(self, cacheDir = None, expireHour = None):
-  	self.cacheBaseDir = cacheDir if cacheDir else JsonCache.DEFAULT_CACHE_BASE_DIR
-  	self.expireHour = expireHour if expireHour else JsonCache.DEFAULT_CACHE_EXPIRE_HOURS
-
-  def ensureCacheStorage(self):
-    if not os.path.exists(self.cacheBaseDir):
-      os.makedirs(self.cacheBaseDir)
-
-  def getCacheFilename(self, url):
-  	result = url
-  	result = re.sub(r'^https?://', '', url)
-  	result = re.sub(r'^[a-zA-Z0-9\-_]+\.[a-zA-Z]{2,}', '', result)
-  	result = re.sub(r'[^a-zA-Z0-9._-]', '_', result)
-  	result = re.sub(r'\.', '_', result)
-  	result = re.sub(r'=', '_', result)
-  	result = re.sub(r'#', '_', result)
-  	result = result + ".json"
-  	return result
-
-  def getCachePath(self, url):
-    return os.path.join(self.cacheBaseDir, self.getCacheFilename(url))
-
-  def storeToCache(self, url, result):
-    self.ensureCacheStorage()
-    cachePath = self.getCachePath( url )
-    dt_now = datetime.now()
-    _result = {
-    	"lastUpdate":dt_now.strftime("%Y-%m-%d %H:%M:%S"),
-    	"data": result
-    }
-    with open(cachePath, 'w', encoding='UTF-8') as f:
-      json.dump(_result, f, indent = 4, ensure_ascii=False)
-      f.close()
-
-  def isValidCache(self, lastUpdateString):
-    result = False
-    lastUpdate = datetime.strptime(lastUpdateString, "%Y-%m-%d %H:%M:%S")
-    dt_now = datetime.now()
-    if dt_now < ( lastUpdate+timedelta(hours=self.expireHour) ):
-      result = True
-
-    return result
-
-  def restoreFromCache(self, url):
-    result = None
-    cachePath = self.getCachePath( url )
-    if os.path.exists( cachePath ):
-	    with open(cachePath, 'r', encoding='UTF-8') as f:
-	      _result = json.load(f)
-	      f.close()
-
-	    if "lastUpdate" in _result:
-	      if self.isValidCache( _result["lastUpdate"] ):
-	        result = _result["data"]
-
-    return result
 
 class ParserBase:
 	TARGET_URL = "DUMMY"
@@ -336,19 +277,6 @@ class MountainRecordUtil:
 		return result
 
 
-class ExecUtil:
-	@staticmethod
-	def _getOpen():
-		result = "open"
-		if sys.platform.startswith('win'):
-			result = "start"
-		return result
-
-	@staticmethod
-	def open(arg):
-		exec_cmd = f'{ExecUtil._getOpen()} {arg}'
-		result = subprocess.run(exec_cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
-		return result
 
 
 class MountainFilterUtil:
@@ -419,19 +347,6 @@ class MountainFilterUtil:
   	return int(result)
 
 
-class ExecUtil:
-  @staticmethod
-  def _getOpen():
-    result = "open"
-    if sys.platform.startswith('win'):
-      result = "start"
-    return result
-
-  @staticmethod
-  def open(url):
-    exec_cmd = f'{ExecUtil._getOpen()} {shlex.quote(url)}'
-    result = subprocess.run(exec_cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
-    return result
 
 def shoudHandleUrl(url, providers):
 	for provider in providers:

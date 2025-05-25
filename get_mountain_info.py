@@ -21,9 +21,7 @@ import time
 import json
 import itertools
 import os
-from get_recent_record import MountainRecordUtil
-from get_detail_record import StrUtil, NumUtil, JsonCache
-from get_recent_record2 import ExecUtil
+from mountainRecordUtil import JsonCache, NumUtil, StrUtil, ExecUtil, MountainRecordUtil
 
 
 import requests
