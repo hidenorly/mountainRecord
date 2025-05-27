@@ -15,6 +15,11 @@
 import argparse
 import requests
 from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import json
 import os
 import sys
@@ -45,6 +50,15 @@ class ParserBase:
 
 	def parseRecentRecord(self, soup, result):
 		return result
+
+	def login(self, driver):
+		return False
+
+	def login_wait(self, driver):
+		return False
+
+	def article_wait(self, driver):
+		return False
 
 
 class YamarecoParser(ParserBase):
@@ -185,6 +199,43 @@ class YamarecoParser(ParserBase):
 
 		return result
 
+	TARGET_LOGIN_URL = "https://www.yamareco.com/modules/cubeUtils/index.php"
+	def login(self, driver):
+		user_id = os.getenv("YAMARECO_USER_ID")
+		password = os.getenv("YAMARECO_PASSWORD")
+		if user_id and password:
+			try:
+				driver.get(self.TARGET_LOGIN_URL)
+				WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.NAME, "uname")))
+				username_input = driver.find_element(By.NAME, "uname")
+				password_input = driver.find_element(By.NAME, "pass")
+
+				username_input.send_keys(user_id)
+				password_input.send_keys(password)
+				password_input.send_keys(Keys.RETURN)
+				return login_wait(driver)
+			except:
+				pass
+
+		return False
+
+	def login_wait(self, driver):
+		try:
+			WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.CSS_SELECTOR, "img.header-right-user-icon")))
+			WebDriverWait(driver, 3).until(EC.text_to_be_present_in_element((By.TAG_NAME, "body"),"ログインしました"))
+			return True
+		except:
+			pass
+		return False
+
+	def article_wait(self, driver):
+		try:
+			WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.CSS_SELECTOR, "article.record-detail")))
+			return True
+		except:
+			pass
+		return False
+
 
 class YamapParser(ParserBase):
 	TARGET_URL = "https://yamap.com"
@@ -285,6 +336,26 @@ class YamapParser(ParserBase):
 		return result
 
 
+class WebUtil:
+  @staticmethod
+  def get_web_driver(width=1920, height=1080):
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')
+    tempDriver = webdriver.Chrome(options=options)
+    userAgent = tempDriver.execute_script("return navigator.userAgent")
+    userAgent = userAgent.replace("headless", "")
+    userAgent = userAgent.replace("Headless", "")
+
+    options = webdriver.ChromeOptions()
+    options.page_load_strategy = 'eager'
+    options.add_argument('--headless')
+    options.add_argument(f"user-agent={userAgent}")
+    driver = webdriver.Chrome(options=options)
+    driver.set_window_size(width, height)
+
+    return driver
+
+
 class MountainDetailRecordUtil:
 	NUM_OF_CACHE = 1000
 	CACHE_ID = "mountainDetailRecord"
@@ -293,6 +364,7 @@ class MountainDetailRecordUtil:
 		cache = JsonCache(os.path.join(JsonCache.DEFAULT_CACHE_BASE_DIR, self.CACHE_ID), JsonCache.CACHE_INFINITE, self.NUM_OF_CACHE)
 
 		self._parser = None
+		self._driver = None
 		parser = []
 		parser.append( YamarecoParser() )
 		parser.append( YamapParser() )
@@ -351,6 +423,11 @@ class MountainDetailRecordUtil:
 			'photo_captions':[],
 		}
 
+	def isFailedToParse(self, result):
+		if result['duration']==None:
+			return True
+		return False
+
 	def parseRecentRecord(self, recordUrl):
 		result = self._createBaseResult(recordUrl)
 		soup = None
@@ -363,6 +440,20 @@ class MountainDetailRecordUtil:
 
 		if soup and self._parser:
 			result = self._parser.parseRecentRecord(soup, result)
+
+		if self.isFailedToParse(result):
+			# fallback
+			driver = self._driver
+			if not self._driver:
+				driver = self._driver = WebUtil.get_web_driver()
+			if self._parser:
+				self._parser.login(self._driver)
+				driver.get(recordUrl)
+				time.sleep(1)
+				driver.get(recordUrl)
+				self._parser.article_wait(driver)
+				soup = BeautifulSoup(driver.page_source, 'html.parser')
+				result = self._parser.parseRecentRecord(soup, result)
 
 		return result
 
