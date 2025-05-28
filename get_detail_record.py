@@ -213,7 +213,7 @@ class YamarecoParser(ParserBase):
 				username_input.send_keys(user_id)
 				password_input.send_keys(password)
 				password_input.send_keys(Keys.RETURN)
-				return login_wait(driver)
+				return self.login_wait(driver)
 			except:
 				pass
 
@@ -447,13 +447,13 @@ class MountainDetailRecordUtil:
 			if not self._driver:
 				driver = self._driver = WebUtil.get_web_driver()
 			if self._parser:
-				self._parser.login(self._driver)
-				driver.get(recordUrl)
-				time.sleep(1)
-				driver.get(recordUrl)
-				self._parser.article_wait(driver)
-				soup = BeautifulSoup(driver.page_source, 'html.parser')
-				result = self._parser.parseRecentRecord(soup, result)
+					if self._parser.login(self._driver):
+						driver.get(recordUrl)
+						time.sleep(1)
+						driver.get(recordUrl)
+						if self._parser.article_wait(driver):
+							soup = BeautifulSoup(driver.page_source, 'html.parser')
+							result = self._parser.parseRecentRecord(soup, result)
 
 		return result
 
