@@ -336,6 +336,48 @@ class YamapParser(ParserBase):
 		return result
 
 
+	TARGET_LOGIN_URL = "https://yamap.com/login?return_to=%2F"
+	def login(self, driver):
+		user_id = os.getenv("YAMAP_USER_ID")
+		password = os.getenv("YAMAP_PASSWORD")
+		if user_id and password:
+			try:
+				driver.get(self.TARGET_LOGIN_URL)
+				WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "email")))
+				username_input = driver.find_element(By.NAME, "email")
+				password_input = driver.find_element(By.NAME, "password")
+
+				username_input.clear()
+				password_input.clear()
+
+				username_input.send_keys(user_id)
+				password_input.send_keys(password)
+				password_input.send_keys(Keys.RETURN)
+				return self.login_wait(driver)
+			except:
+				pass
+
+		return False
+
+	def login_wait(self, driver):
+		try:
+			WebDriverWait(driver, 10).until(EC.url_to_be("https://yamap.com/"))
+			return True
+		except:
+			pass
+		return False
+
+	def article_wait(self, driver):
+		try:
+			time_element = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.ID, "activity-record-value-duration")))
+			return True
+		except:
+			pass
+		return False
+
+
+
 class WebUtil:
   @staticmethod
   def get_web_driver(width=1920, height=1080):
