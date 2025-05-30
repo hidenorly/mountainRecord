@@ -29,7 +29,9 @@ from datetime import timedelta, datetime
 import glob
 import shlex
 import time
+from urllib.parse import urlparse
 from mountainRecordUtil import JsonCache, NumUtil, StrUtil, ExecUtil
+
 
 
 class ParserBase:
@@ -200,13 +202,22 @@ class YamarecoParser(ParserBase):
 		return result
 
 	TARGET_LOGIN_URL = "https://www.yamareco.com/modules/cubeUtils/index.php"
+	MY_PAGE_URL = "https://www.yamareco.com/modules/mydata/"
 	def login(self, driver):
 		user_id = os.getenv("YAMARECO_USER_ID")
 		password = os.getenv("YAMARECO_PASSWORD")
 		if user_id and password:
 			try:
 				driver.get(self.TARGET_LOGIN_URL)
-				WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.NAME, "uname")))
+
+				# already logined?
+				parsed_url = urlparse(self.TARGET_LOGIN_URL)
+				base_url = f"{parsed_url.scheme}://{parsed_url.netloc}/"
+				WebDriverWait(driver, 3).until(lambda d: d.current_url.startswith(base_url))
+				if driver.current_url.startswith(self.MY_PAGE_URL):
+					return True
+
+				WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.NAME, "uname")))
 				username_input = driver.find_element(By.NAME, "uname")
 				password_input = driver.find_element(By.NAME, "pass")
 
@@ -379,23 +390,30 @@ class YamapParser(ParserBase):
 
 
 class WebUtil:
-  @staticmethod
-  def get_web_driver(width=1920, height=1080):
-    options = webdriver.ChromeOptions()
-    options.add_argument('--headless')
-    tempDriver = webdriver.Chrome(options=options)
-    userAgent = tempDriver.execute_script("return navigator.userAgent")
-    userAgent = userAgent.replace("headless", "")
-    userAgent = userAgent.replace("Headless", "")
+	_driver = None
 
-    options = webdriver.ChromeOptions()
-    options.page_load_strategy = 'eager'
-    options.add_argument('--headless')
-    options.add_argument(f"user-agent={userAgent}")
-    driver = webdriver.Chrome(options=options)
-    driver.set_window_size(width, height)
+	@staticmethod
+	def get_web_driver(width=1920, height=1080):
+		if WebUtil._driver:
+			return WebUtil._driver
 
-    return driver
+		options = webdriver.ChromeOptions()
+		options.add_argument('--headless')
+		tempDriver = webdriver.Chrome(options=options)
+		userAgent = tempDriver.execute_script("return navigator.userAgent")
+		userAgent = userAgent.replace("headless", "")
+		userAgent = userAgent.replace("Headless", "")
+
+		options = webdriver.ChromeOptions()
+		options.page_load_strategy = 'eager'
+		options.add_argument('--headless')
+		options.add_argument(f"user-agent={userAgent}")
+		driver = webdriver.Chrome(options=options)
+		driver.set_window_size(width, height)
+
+		WebUtil._driver = driver
+
+		return driver
 
 
 class MountainDetailRecordUtil:
@@ -485,11 +503,9 @@ class MountainDetailRecordUtil:
 
 		if self.isFailedToParse(result):
 			# fallback
-			driver = self._driver
-			if not self._driver:
-				driver = self._driver = WebUtil.get_web_driver()
+			driver = WebUtil.get_web_driver()
 			if self._parser:
-					if self._parser.login(self._driver):
+					if self._parser.login(driver):
 						driver.get(recordUrl)
 						time.sleep(1)
 						driver.get(recordUrl)
