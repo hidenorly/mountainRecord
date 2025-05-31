@@ -216,6 +216,9 @@ class YamarecoParser(ParserBase):
 				WebDriverWait(driver, 3).until(lambda d: d.current_url.startswith(base_url))
 				if driver.current_url.startswith(self.MY_PAGE_URL):
 					return True
+				if "google_vignette" in driver.current_url:
+					driver.back()
+					WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
 
 				WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.NAME, "uname")))
 				username_input = driver.find_element(By.NAME, "uname")
