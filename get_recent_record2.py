@@ -332,7 +332,7 @@ class MountainFilterUtil:
     for aMountain in mountains:
       if not MountainFilterUtil.isMatchedMountainRobust( excludes, aMountain ):
         result.add( aMountain )
-    return result
+    return result, excludes
 
   @staticmethod
   def getAltitude( altitude ):
@@ -346,7 +346,15 @@ class MountainFilterUtil:
   		pass
   	return int(result)
 
-
+  @staticmethod
+  def shoudExcludeRecord( fields, excludes ):
+  	if not aResult:
+  		return True
+  	for exclude in excludes:
+  		for field in fields:
+	  		if exclude in field:
+	  			return True
+  	return False
 
 def shoudHandleUrl(url, providers):
 	for provider in providers:
@@ -374,7 +382,7 @@ if __name__=="__main__":
 	today = datetime.now().date()
 	providers = args.providers.split("|")
 
-	mountains = MountainFilterUtil.mountainsIncludeExcludeFromFile( set(args.args), args.exclude, args.include )
+	mountains, excludes = MountainFilterUtil.mountainsIncludeExcludeFromFile( set(args.args), args.exclude, args.include )
 	mountainList=[]
 	for aMountainName in mountains:
 		mountainList.extend( recUtil.getMountainsWithMountainName( aMountainName ) )
@@ -387,6 +395,8 @@ if __name__=="__main__":
 				results = recUtil.parseRecentRecord( aMountain["url"] )
 				n = 0
 				for aResult in results:
+					if MountainFilterUtil.shoudExcludeRecord([aMountain["name"], aResult["title"]], excludes):
+						continue
 					if aResult and ("date" in aResult) and aResult["date"]:
 						date_diff = today - aResult["date"]
 						if date_diff.days < args.filterDays:
