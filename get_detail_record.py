@@ -355,9 +355,10 @@ class YamapParser(ParserBase):
 		user_id = os.getenv("YAMAP_USER_ID")
 		password = os.getenv("YAMAP_PASSWORD")
 		if user_id and password:
+			time.sleep(1)
 			try:
 				driver.get(self.TARGET_LOGIN_URL)
-				WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "email")))
+				WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.ID, "email")))
 				username_input = driver.find_element(By.NAME, "email")
 				password_input = driver.find_element(By.NAME, "password")
 
@@ -375,7 +376,7 @@ class YamapParser(ParserBase):
 
 	def login_wait(self, driver):
 		try:
-			WebDriverWait(driver, 10).until(EC.url_to_be("https://yamap.com/"))
+			WebDriverWait(driver, 3).until(EC.url_to_be("https://yamap.com/"))
 			return True
 		except:
 			pass
@@ -383,7 +384,7 @@ class YamapParser(ParserBase):
 
 	def article_wait(self, driver):
 		try:
-			time_element = WebDriverWait(driver, 10).until(
+			time_element = WebDriverWait(driver, 3).until(
         EC.presence_of_element_located((By.ID, "activity-record-value-duration")))
 			return True
 		except:
@@ -423,23 +424,26 @@ class MountainDetailRecordUtil:
 	NUM_OF_CACHE = 1000
 	CACHE_ID = "mountainDetailRecord"
 
-	def __init__(self, url):
-		cache = JsonCache(os.path.join(JsonCache.DEFAULT_CACHE_BASE_DIR, self.CACHE_ID), JsonCache.CACHE_INFINITE, self.NUM_OF_CACHE)
-
-		self._parser = None
-		self._driver = None
+	def getParser(self, url):
 		parser = []
 		parser.append( YamarecoParser() )
 		parser.append( YamapParser() )
 		for aParser in parser:
 			if aParser.canHandle(url):
-				self._parser = aParser
-				break
+				return aParser
+		return None
+
+
+	def __init__(self, url):
+		cache = JsonCache(os.path.join(JsonCache.DEFAULT_CACHE_BASE_DIR, self.CACHE_ID), JsonCache.CACHE_INFINITE, self.NUM_OF_CACHE)
+
+		parser = self._parser = self.getParser(url)
+		self._driver = None
 
 		self.data = data = cache.restoreFromCache(url)
 		if not data:
 			self.data = data = self.parseRecentRecord(url)
-			if self._parser and data["date"]:
+			if parser and "date" in data and data["date"]:
 				cache.storeToCache(url, data)
 
 		for key, value in data.items():
@@ -450,8 +454,8 @@ class MountainDetailRecordUtil:
 		self.elevation_up = NumUtil.toFloat(self.elevation_gained)
 		self.elevation_down = NumUtil.toFloat(self.elevation_lost)
 		self.date_parsed = self.date
-		if self._parser and self.date:
-			self.date_parsed = self._parser.parseDate(self.date)
+		if parser and self.date:
+			self.date_parsed = parser.parseDate(self.date)
 
 	@staticmethod
 	def getMinutesFromHHMM(timeHHMM):
