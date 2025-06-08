@@ -141,6 +141,16 @@ class MountainRecordUtilYamareco(ParserBase):
 
 	def _parseRecentRecord(self, soup, result):
 		if soup:
+			# search prefecture
+			prefecture = None
+			for img in soup.find_all('img', alt='都道府県'):
+			    parent = img.find_parent('div')
+			    if parent:
+			        span = parent.find('span')
+			        if span:
+			            prefecture = span.get_text(strip=True)
+			            if prefecture:
+				            break
 			blocks = soup.select('#reclist .block')
 			for block in blocks:
 				date_elem = block.select_one('.ft')
@@ -183,6 +193,7 @@ class MountainRecordUtilYamareco(ParserBase):
 					'level': level,
 					'photo': photo,
 					'route': route,
+					"prefecture": prefecture,
 					'url': url
 				}
 				if aData['date'] and aData['url']!="N/A":
