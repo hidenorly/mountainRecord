@@ -527,6 +527,17 @@ class MountainDetailRecordUtil:
 		return result
 
 
+def flatten_to_text(v):
+    if isinstance(v, dict):
+        return " ".join(f"{k}: {flatten_to_text(val)}" for k, val in v.items())
+    elif isinstance(v, list):
+        return " ".join(flatten_to_text(item) for item in v)
+    elif v is None:
+        return ""
+    if isinstance(v, str):
+        return v.replace("\n", " ").strip()
+    else:
+        return ""
 
 
 if __name__=="__main__":
@@ -545,6 +556,7 @@ if __name__=="__main__":
 	parser.add_argument('-o', '--openUrl', action='store_true', default=False, help='specify if you want to open the url')
 	parser.add_argument('-c', '--clearCache', action='store_true', default=False, help='specify if you want to execute with clearing cache')
 	parser.add_argument('-w', '--oneline', action='store_true', default=False, help='specify if you want to print as oneline manner')
+	parser.add_argument('-x', '--xoneline', action='store_true', default=False, help='specify if you want to print as oneline manner(extended)')
 
 	args = parser.parse_args()
 
@@ -587,6 +599,9 @@ if __name__=="__main__":
 
 		if args.oneline:
 			print(f'{anInfo.date_parsed}  {StrUtil.ljust_jp(str(anInfo.distance), 6)}  {StrUtil.ljust_jp(str(anInfo.duration), 6)} {StrUtil.ljust_jp(str(anInfo.elevation_up), 6)} {StrUtil.ljust_jp(str(anInfo.elevation_down), 6)}  {StrUtil.ljust_jp(str(anInfo.url),61)}  {anInfo.title}')
+		if args.xoneline:
+			val = " ".join(flatten_to_text(v) for v in anInfo.__dict__.values())
+			print(val.strip())
 		else:
 			if i>0:
 				print("")
