@@ -81,6 +81,10 @@ class MountainRecordUtilYamap(ParserBase):
 
 	def _parseRecentRecord(self, soup, result):
 		if soup:
+			prefecture = None
+			pref_a = soup.select_one('a[href^="/mountains/prefectures/"]')
+			if pref_a:
+				prefecture = pref_a.text.strip()
 			activities = soup.find_all('article', class_='MountainActivityItem')
 			if activities:
 				for activity in activities:
@@ -118,6 +122,7 @@ class MountainRecordUtilYamap(ParserBase):
 						"duration": duration,
 						"distance": distance,
 						"elevation": elevation,
+						"prefecture": prefecture,
 						"url": url
 					}
 
