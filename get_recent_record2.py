@@ -340,7 +340,11 @@ class MountainFilterUtil:
     includes = set()
     excludes = set()
     for anExclude in excludeFile:
-      excludes =  excludes | MountainFilterUtil.getSetOfCsvs( anExclude )
+      the_excludes = MountainFilterUtil.getSetOfCsvs( anExclude )
+      if the_excludes:
+      	excludes =  excludes | the_excludes
+      else:
+      	excludes =  excludes | set(anExclude)
     for anInclude in includeFile:
       includes = includes | MountainFilterUtil.getSetOfCsvs( anInclude )
     for aMountain in includes:
@@ -411,7 +415,7 @@ if __name__=="__main__":
 				results = recUtil.parseRecentRecord( aMountain["url"] )
 				n = 0
 				for aResult in results:
-					if MountainFilterUtil.shoudExcludeRecord([aMountain["name"], aResult["title"]], excludes):
+					if MountainFilterUtil.shoudExcludeRecord([aMountain["name"], aResult["title"], aResult["prefecture"]], excludes):
 						continue
 					if aResult and ("date" in aResult) and aResult["date"]:
 						date_diff = today - aResult["date"]
