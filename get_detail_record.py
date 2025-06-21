@@ -599,9 +599,10 @@ if __name__=="__main__":
 
 		if args.oneline:
 			print(f'{anInfo.date_parsed}  {StrUtil.ljust_jp(str(anInfo.distance), 6)}  {StrUtil.ljust_jp(str(anInfo.duration), 6)} {StrUtil.ljust_jp(str(anInfo.elevation_up), 6)} {StrUtil.ljust_jp(str(anInfo.elevation_down), 6)}  {StrUtil.ljust_jp(str(anInfo.url),61)}  {anInfo.title}')
-		if args.xoneline:
+		elif args.xoneline:
 			val = " ".join(flatten_to_text(v) for v in anInfo.__dict__.values())
 			print(val.strip())
+			continue
 		else:
 			if i>0:
 				print("")
