@@ -543,6 +543,7 @@ def flatten_to_text(v):
 if __name__=="__main__":
 	parser = argparse.ArgumentParser(description='Specify mountain detail record urls', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 	parser.add_argument('args', nargs='*', help='url(s)')
+	parser.add_argument('-nd', '--urlOnly', action='store_true', default=False, help='specify if you want to print url only')
 	parser.add_argument('-n', '--noOutputIfNone', action='store_true', default=False, help='specify if you want not to print None report')
 	parser.add_argument('-f', '--filterOut', action='store', default="", help='specify if you want to filter out the field e.g. photo_captions|access')
 	parser.add_argument('-d', '--distanceMax', action='store', default=None, type=float, help='specify distance maximum')
@@ -597,23 +598,26 @@ if __name__=="__main__":
 				if ( args.piston and delta > threshold ) or ( args.oneway and delta < threshold ):
 					continue
 
-		if args.oneline:
-			print(f'{anInfo.date_parsed}  {StrUtil.ljust_jp(str(anInfo.distance), 6)}  {StrUtil.ljust_jp(str(anInfo.duration), 6)} {StrUtil.ljust_jp(str(anInfo.elevation_up), 6)} {StrUtil.ljust_jp(str(anInfo.elevation_down), 6)}  {StrUtil.ljust_jp(str(anInfo.url),61)}  {anInfo.title}')
-		elif args.xoneline:
-			val = " ".join(flatten_to_text(v) for v in anInfo.__dict__.values())
-			print(val.strip())
-			continue
+		if not args.urlOnly:
+			if args.oneline:
+				print(f'{anInfo.date_parsed}  {StrUtil.ljust_jp(str(anInfo.distance), 6)}  {StrUtil.ljust_jp(str(anInfo.duration), 6)} {StrUtil.ljust_jp(str(anInfo.elevation_up), 6)} {StrUtil.ljust_jp(str(anInfo.elevation_down), 6)}  {StrUtil.ljust_jp(str(anInfo.url),61)}  {anInfo.title}')
+			elif args.xoneline:
+				val = " ".join(flatten_to_text(v) for v in anInfo.__dict__.values())
+				print(val.strip())
+				continue
+			else:
+				if i>0:
+					print("")
+				for key, value in anInfo.data.items():
+					if not key in args.filterOut:
+						if isinstance(value, list):
+							print(f'{StrUtil.ljust_jp(key, 20)}\t:')
+							for aValue in value:
+								print(f'{StrUtil.ljust_jp("", 20)}\t: {aValue}')
+						else:
+							print(f'{StrUtil.ljust_jp(key, 20)}\t: {value}')
 		else:
-			if i>0:
-				print("")
-			for key, value in anInfo.data.items():
-				if not key in args.filterOut:
-					if isinstance(value, list):
-						print(f'{StrUtil.ljust_jp(key, 20)}\t:')
-						for aValue in value:
-							print(f'{StrUtil.ljust_jp("", 20)}\t: {aValue}')
-					else:
-						print(f'{StrUtil.ljust_jp(key, 20)}\t: {value}')
+			print(aUrl)
 
 		if args.openUrl:
 			if i>=1:
