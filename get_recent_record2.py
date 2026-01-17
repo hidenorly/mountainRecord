@@ -74,7 +74,7 @@ class MountainRecordUtilYamap(ParserBase):
 	def parseDate(self, date_text):
 		date_parsed = None
 		try:
-			date_parsed = datetime.strptime(date_text, "%Y.%m.%d").date()
+			date_parsed = datetime.strptime(date_text, "%Y年%m月%d日").date()
 		except:
 			pass
 		return date_parsed
@@ -201,6 +201,7 @@ class MountainRecordUtilYamareco(ParserBase):
 					"prefecture": prefecture,
 					'url': url
 				}
+
 				if aData['date'] and aData['url']!="N/A":
 					result.append( aData )
 
@@ -212,7 +213,7 @@ class MountainRecordUtil:
 	MOUNTAIN_DIC_PATH = os.path.join( os.path.dirname(os.path.realpath(__file__)), "mountain_dic.json" )
 
 	def __init__(self):
-		self.cache = JsonCache(os.path.join(JsonCache.DEFAULT_CACHE_BASE_DIR, "mountainRecord"), 1)
+		self.cache = JsonCache(os.path.join(JsonCache.DEFAULT_CACHE_BASE_DIR, "mountainRecord"), 4)
 
 		parser = self.parser = []
 		parser.append( MountainRecordUtilYamareco() )
