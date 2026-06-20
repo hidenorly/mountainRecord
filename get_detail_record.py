@@ -1,4 +1,4 @@
-#   Copyright 2024, 2025 hidenorly
+#   Copyright 2024, 2025, 2026 hidenorly
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -32,7 +32,11 @@ import time
 from urllib.parse import urlparse
 from mountainRecordUtil import JsonCache, NumUtil, StrUtil, ExecUtil
 
-
+try:
+	from get_mapcode import get_mapcode
+except:
+	def get_mapcode(latitude, longitude):
+		return None
 
 class ParserBase:
 	TARGET_URL = "DUMMY"
@@ -166,7 +170,7 @@ class YamarecoParser(ParserBase):
 						if access:
 							for anAccess in access:
 								anAccess = anAccess.strip()
-								if anAccess and not "アクセスを調べる" in anAccess and not "my出発地登録" in anAccess:
+								if anAccess and not anAccess in ["アクセスを調べる", "my出発地登録", "利用交通機関："]:
 									result['access'].append(anAccess)
 					elif "天候" in text:
 						weather = anItem.find_next('td').get_text(separator='\n')
@@ -198,6 +202,28 @@ class YamarecoParser(ParserBase):
 				impression = impression.get_text().strip()
 				if impression:
 					result['impression']=impression
+
+			# access route latitude/longitude (mklink 4th/5th args)
+			route_div = soup.find('div', class_='record-detail-content-route-btns-right')
+			if route_div:
+			    access_link = route_div.find(
+			        'a',
+			        attrs={'class': lambda x: x and 'opennew' in x}
+			    )
+			    if access_link:
+			        onclick = access_link.get('onclick')
+			        if onclick:
+			            match = re.search(
+			                r"mklink\(\s*'[^']*'\s*,\s*'[^']*'\s*,\s*'[^']*'\s*,\s*'([^']+)'\s*,\s*'([^']+)'\s*\)",
+			                onclick
+			            )
+			            if match:
+			            	latitude = float(match.group(1))
+			            	longitude = float(match.group(2))
+			            	result['access_lat_lon'] = f"{latitude} {longitude}"
+			            	mapcode = get_mapcode(latitude, longitude)
+			            	if mapcode:
+			            		result['access_lat_lon'] = f"{result['access_lat_lon']} ({mapcode})"
 
 		return result
 
@@ -488,6 +514,7 @@ class MountainDetailRecordUtil:
 			'course_info': None,
 			'impression': None,
 			'photo_captions':[],
+			'access_lat_lon':None,
 		}
 
 	def isFailedToParse(self, result):
@@ -611,9 +638,13 @@ if __name__=="__main__":
 				for key, value in anInfo.data.items():
 					if not key in args.filterOut:
 						if isinstance(value, list):
-							print(f'{StrUtil.ljust_jp(key, 20)}\t:')
+							is_done_output = False
 							for aValue in value:
-								print(f'{StrUtil.ljust_jp("", 20)}\t: {aValue}')
+								if is_done_output:
+									print(f'{StrUtil.ljust_jp("", 20)}\t: {aValue}')
+								else:
+									print(f'{StrUtil.ljust_jp(key, 20)}\t: {aValue}')
+									is_done_output = True
 						else:
 							print(f'{StrUtil.ljust_jp(key, 20)}\t: {value}')
 		else:
