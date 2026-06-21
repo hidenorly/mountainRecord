@@ -1,4 +1,4 @@
-#   Copyright 2024, 2025 hidenorly
+#   Copyright 2024, 2025, 2026 hidenorly
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -116,7 +116,12 @@ class MountainInfoUtilYamareco(ParserMountainInfoBase):
 				categories = []
 				for link in links:
 					categories.append(link.get_text(strip=True))
-					result["category"] = categories
+				result["category"] = categories
+
+			mtlist_div = soup.find("div", id="ptinfo_mtlist_all")
+			if mtlist_div:
+				for a in mtlist_div.find_all("a"):
+					result["category"].append(a.get_text(strip=True))
 
 			# description
 			official_area = soup.find('div', {'id': 'official-area'})
@@ -228,6 +233,12 @@ class MountainInfo:
 		return results
 
 
+def shoudHandleUrl(url, providers):
+	for provider in providers:
+		if provider in url:
+			return True
+	return False
+
 
 
 if __name__=="__main__":
@@ -238,9 +249,11 @@ if __name__=="__main__":
 	parser.add_argument('-u', '--altitudeMax', action='store', default=9000, type=int, help='Max altitude')
 	parser.add_argument('-c', '--category', action='store', default="", help='Specify category e.g.日本百名山|100名山 if necessary')
 	parser.add_argument('-o', '--openUrl', action='store_true', default=False, help='specify if you want to open the url')
+	parser.add_argument('-p', '--providers', action='store', default="yamareco|yamap", help='Provider yamareco|yamap')
 
 	args = parser.parse_args()
 	info = MountainInfo()
+	providers = args.providers.split("|")
 	categories = []
 	if args.category:
 		categories=str(args.category).split("|")
@@ -248,12 +261,14 @@ if __name__=="__main__":
 	n = 0
 	for mountain_name, infos in results.items():
 		for info in infos:
-			dump_per_category(info)
-			print("")
 			if "url" in info:
-				if args.openUrl:
-					if n>=1:
-						time.sleep(1)
-					ExecUtil.open( info["url"] )
-					n = n + 1
+				url = info["url"]
+				if shoudHandleUrl(url, providers):
+					dump_per_category(info)
+					print("")
+					if args.openUrl:
+						if n>=1:
+							time.sleep(1)
+						ExecUtil.open( info["url"] )
+						n = n + 1
 
