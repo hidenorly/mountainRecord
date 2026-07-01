@@ -484,6 +484,7 @@ def parse_args():
     parser.add_argument("-A", "--altitudeMax", type=int, action='store', help='max mountain altitude [m]')
 
     parser.add_argument("-nn", action="store_true")
+    parser.add_argument("-nw", action="store_true", help='No weather filter')
 
     parser.add_argument("-wd", "--date", help='specify date e.g. 2/14,2/16-2/17')
     parser.add_argument("-dw", "--weekend", action="store_true", help='specify if weekend (Saturday and Sunday)')
@@ -527,28 +528,34 @@ def main():
     )
     sort_candidates(selected)
 
-    dates = parse_weather_dates(args.date, args.weekend)
-
-    for target_date in dates:
-        if not args.nn:
-            print(f"# {target_date}")
-        date_selected = filter_candidates_by_weather(
-            selected,
-            db,
-            routes,
-            args.weatherProvider,
-            target_date,
-            dates,
-            args.pace,
-            args.startHour,
-            args.top,
-            args.mesh_km
-        )
-
+    if args.nw:
         if args.nn:
-            output_nn(date_selected)
+            output_nn(selected)
         else:
-            output_human(date_selected)
+            output_human(selected)
+    else:
+        dates = parse_weather_dates(args.date, args.weekend)
+
+        for target_date in dates:
+            if not args.nn:
+                print(f"# {target_date}")
+            date_selected = filter_candidates_by_weather(
+                selected,
+                db,
+                routes,
+                args.weatherProvider,
+                target_date,
+                dates,
+                args.pace,
+                args.startHour,
+                args.top,
+                args.mesh_km
+            )
+
+            if args.nn:
+                output_nn(date_selected)
+            else:
+                output_human(date_selected)
 
 
 if __name__ == "__main__":
