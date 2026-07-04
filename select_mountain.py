@@ -306,10 +306,22 @@ def filter_trailhead(th, routes, minRouteTime, maxRouteTime, minClimbTime, maxCl
 
     return result
 
+def is_target_category(mflags, categories):
+    if not categories:
+        return True
+
+    for category in categories:
+        if category in mflags:
+            return True
+
+    return False
 
 
-def collect_candidates(db, routes, exclude_uuid, exclude_name, altitudeMin, altitudeMax, minRouteTime, maxRouteTime, minClimbTime, maxClimbTime, distanceMin, distanceMax, elevationMin, elevationMax):
+def collect_candidates(db, routes, exclude_uuid, exclude_name, altitudeMin, altitudeMax, minRouteTime, maxRouteTime, minClimbTime, maxClimbTime, distanceMin, distanceMax, elevationMin, elevationMax, category):
     selected = []
+
+    categories = category.split(",")
+
 
     for mountain_uuid, mountain in db.MOUNTAINS.items():
         if is_mountain_excluded(
@@ -327,6 +339,9 @@ def collect_candidates(db, routes, exclude_uuid, exclude_name, altitudeMin, alti
             altitudeMin,
             altitudeMax
         ):
+            continue
+
+        if not is_target_category(mountain["flags"], categories):
             continue
 
         trailheads = []
@@ -483,6 +498,8 @@ def parse_args():
     parser.add_argument("-a", "--altitudeMin", type=int, action='store', help='min mountain altitude [m]')
     parser.add_argument("-A", "--altitudeMax", type=int, action='store', help='max mountain altitude [m]')
 
+    parser.add_argument('-l', '--category', action='store', default="", help='Specify category e.g.栃木百名山,ぐんま百名山,山梨百名山,日本百名山,日本二百名山,日本三百名山 if necessary')
+
     parser.add_argument("-nn", action="store_true")
     parser.add_argument("-nw", action="store_true", help='No weather filter')
 
@@ -525,10 +542,12 @@ def main():
         args.distanceMax,
         args.elevationMin,
         args.elevationMax,
+        args.category
     )
     sort_candidates(selected)
 
     if args.nw:
+        selected = selected[:args.top]
         if args.nn:
             output_nn(selected)
         else:
