@@ -17,6 +17,7 @@
 import argparse
 import importlib.util
 import os
+import sys
 import math
 from datetime import date, timedelta
 
@@ -303,15 +304,22 @@ def filter_trailhead(th, routes, minRouteTime, maxRouteTime, minClimbTime, maxCl
                 "route_time": route_time,
                 "data": th
             }
+    else:
+        #print(f"Driving time not found: {th}", file=sys.stderr)
+        result = {
+            "route_time": 9999, # should be worst trailhead
+            "data": th
+        }
 
     return result
 
 def is_target_category(mflags, categories):
-    if not categories:
+    if categories is None or len(categories)==0 or mflags is None or len(mflags)==0:
         return True
 
+    concat_flags=",".join(mflags)
     for category in categories:
-        if category in mflags:
+        if category in concat_flags:
             return True
 
     return False
@@ -320,8 +328,9 @@ def is_target_category(mflags, categories):
 def collect_candidates(db, routes, exclude_uuid, exclude_name, altitudeMin, altitudeMax, minRouteTime, maxRouteTime, minClimbTime, maxClimbTime, distanceMin, distanceMax, elevationMin, elevationMax, category):
     selected = []
 
-    categories = category.split(",")
-
+    categories = None
+    if category:
+        categories = category.split(",")
 
     for mountain_uuid, mountain in db.MOUNTAINS.items():
         if is_mountain_excluded(
@@ -333,7 +342,6 @@ def collect_candidates(db, routes, exclude_uuid, exclude_name, altitudeMin, alti
             continue
 
         altitude = mountain["altitude"]
-
         if not filter_range(
             altitude,
             altitudeMin,
@@ -498,7 +506,7 @@ def parse_args():
     parser.add_argument("-a", "--altitudeMin", type=int, action='store', help='min mountain altitude [m]')
     parser.add_argument("-A", "--altitudeMax", type=int, action='store', help='max mountain altitude [m]')
 
-    parser.add_argument('-l', '--category', action='store', default="", help='Specify category e.g.栃木百名山,ぐんま百名山,山梨百名山,日本百名山,日本二百名山,日本三百名山 if necessary')
+    parser.add_argument('-l', '--category', action='store', default=None, help='Specify category e.g.栃木百名山,ぐんま百名山,山梨百名山,日本百名山,日本二百名山,日本三百名山 if necessary')
 
     parser.add_argument("-nn", action="store_true")
     parser.add_argument("-nw", action="store_true", help='No weather filter')
