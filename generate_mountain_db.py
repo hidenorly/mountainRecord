@@ -78,6 +78,7 @@ def parse_mountain_info(name):
         name_match = re.search(r"^\s*(.+)", block)
         yomi_match = re.search(r"yomi\s+:\s+(.+)", block)
         alt_match = re.search(r"altitude\s+:\s+([\d\.]+)", block)
+        url_match = re.search(r"url\s+:\s+(.+)", block)
 
         loc_match = re.search(
             r"北緯(\d+)度(\d+)分(\d+)秒,\s*東経(\d+)度(\d+)分(\d+)秒",
@@ -116,6 +117,7 @@ def parse_mountain_info(name):
         altitude = float(alt_match.group(1))
         name_value = name_match.group(1).strip()
         yomi = yomi_match.group(1).strip()
+        url = url_match.group(1).strip()
 
         result.append({
             "mountain_uuid": generate_mountain_uuid(
@@ -126,6 +128,7 @@ def parse_mountain_info(name):
             "latitude": lat,
             "longitude": lon,
             "altitude": altitude,
+            "url": url,
             "flags": categories
         })
 
@@ -300,7 +303,7 @@ def get_route_time(lat, lon):
     return int(m.group(1)) * 60 + int(m.group(2))
 
 
-def build_db(mountain_names, days, samples):
+def build_db(mountain_names, days, samples, user_out):
     db = {}
     user_routes = {}
     is_wait_required = False
@@ -391,12 +394,13 @@ def build_db(mountain_names, days, samples):
                     "sample_count": len(rows)
                 }
 
-                route_time = get_route_time(lat, lon)
-                if route_time:
-                    user_routes[trailhead_id] = {
-                        "route_time_min": route_time,
-                        "trailhead_name": trailhead_name
-                    }
+                if user_out and lat and lon:
+                    route_time = get_route_time(lat, lon)
+                    if route_time:
+                        user_routes[trailhead_id] = {
+                            "route_time_min": route_time,
+                            "trailhead_name": trailhead_name
+                        }
 
             info["trailheads"] = trailheads
             db[info["mountain_uuid"]] = info
@@ -429,15 +433,17 @@ def main():
     args = parser.parse_args()
 
     names = load_mountains(args.csv)
-    db, user_routes = build_db(names, args.days, args.samples)
+    db, user_routes = build_db(names, args.days, args.samples, args.user_out)
 
-    with open(args.db_out, "w", encoding="utf-8") as f:
-        f.write("MOUNTAINS = ")
-        f.write(repr(db))
+    if args.db_out and db:
+        with open(args.db_out, "w", encoding="utf-8") as f:
+            f.write("MOUNTAINS = ")
+            f.write(repr(db))
 
-    with open(args.user_out, "w", encoding="utf-8") as f:
-        f.write("USER_TOZANGUCHI = ")
-        f.write(repr(user_routes))
+    if args.user_out and user_routes:
+        with open(args.user_out, "w", encoding="utf-8") as f:
+            f.write("USER_TOZANGUCHI = ")
+            f.write(repr(user_routes))
 
 
 if __name__ == "__main__":
