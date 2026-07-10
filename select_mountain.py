@@ -20,6 +20,8 @@ import os
 import sys
 import math
 from datetime import date, timedelta
+import time
+from mountainRecordUtil import ExecUtil
 
 from new_get_weather import WeatherQuery, ProviderFactory
 
@@ -59,14 +61,16 @@ def load_excludes(path, mountains):
         try:
             with open(path, encoding="utf-8") as f:
                 for line in f:
-                    s = line.strip()
-                    if not s:
-                        continue
+                    cols = line.split(",")
+                    for col in cols:
+                        s = col.strip()
+                        if not s:
+                            continue
 
-                    if s in mountains:
-                        exclude_uuid.add(s)
-                    else:
-                        exclude_name.add(s)
+                        if s in mountains:
+                            exclude_uuid.add(s)
+                        else:
+                            exclude_name.add(s)
         except:
             pass
 
@@ -460,10 +464,13 @@ def output_human(selected):
                 f'({m["yomi"]})'
                 f'({m["altitude"]}m)'
                 f'({m["mountain_uuid"]}):'
-                f'{flags}'
+                f'{m["url"]}'
             )
         except:
             pass
+
+        print(f'   {flags}')
+
 
         for th in row["trailheads"]:
             t = th["data"]
@@ -566,7 +573,9 @@ def main():
         for target_date in dates:
             if not args.nn:
                 print(f"# {target_date}")
-            date_selected = filter_candidates_by_weather(
+
+            # filter the mountain
+            acceptable_weather_filtered_mountains = filter_candidates_by_weather(
                 selected,
                 db,
                 routes,
@@ -580,9 +589,9 @@ def main():
             )
 
             if args.nn:
-                output_nn(date_selected)
+                output_nn(acceptable_weather_filtered_mountains)
             else:
-                output_human(date_selected)
+                output_human(acceptable_weather_filtered_mountains)
 
 
 if __name__ == "__main__":
