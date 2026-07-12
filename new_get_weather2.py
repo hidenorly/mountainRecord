@@ -107,13 +107,13 @@ def main():
 
     provider = ProviderFactory.create(args.provider)
 
-    dates = parse_target_dates(
+    dates = DateTimeUtil.parse_target_dates(
         args.date,
         args.dateweekend
     )
 
     time_range = (
-        parse_time_range(args.time)
+        DateTimeUtil.parse_time_range(args.time)
         if args.time else None
     )
 
