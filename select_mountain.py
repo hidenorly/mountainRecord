@@ -19,14 +19,13 @@ import importlib.util
 import os
 import sys
 import math
-from datetime import date, timedelta
+from datetime import date, timedelta,datetime
 import time
-from mountainRecordUtil import ExecUtil
+
+from get_recent_record2 import MountainRecordUtil,ExecUtil
 
 from new_get_weather import WeatherQuery, ProviderFactory
-
 UNACCEPTABLE_WEATHER = {"rain", "snow", "thunder"}
-
 WEATHER_CACHE = {}
 
 
@@ -526,6 +525,10 @@ def parse_args():
     parser.add_argument("--top", type=int, default=10, help='Specify the number of mountain candidates')
     parser.add_argument("--mesh-km", type=float, default=5.0)
 
+    parser.add_argument('-nd', '--urlOnly', action='store_true', default=False, help='specify if you want to print url only')
+    parser.add_argument('-n', '--numOpen', action='store', type=int, default=3, help='specify if you want to filter the opening article')
+    parser.add_argument('-o', '--openUrl', action='store_true', default=False, help='specify if you want to open the url')
+
     return parser.parse_args()
 
 
@@ -536,6 +539,9 @@ def main():
     maxRouteTime = get_min_from_hhmm(args.maxRouteTime)
     minClimbTime = get_min_from_hhmm(args.minClimbTime)
     maxClimbTime = get_min_from_hhmm(args.maxClimbTime)
+
+    recUtil = MountainRecordUtil()
+    today = datetime.now().date()
 
     db, routes, exclude_uuid, exclude_name = load_resources(
         args.mountainDb,
@@ -561,13 +567,15 @@ def main():
     )
     sort_candidates(selected)
 
+    _selected = []
+    _selected_uuids = set()
     if args.nw:
-        selected = selected[:args.top]
-        if args.nn:
-            output_nn(selected)
-        else:
-            output_human(selected)
+        # case : NOT filter by weather
+        _selected = selected[:args.top]
+        for _ in _selected:
+            _selected_uuids.add( _["mountain"]["mountain_uuid"])
     else:
+        # case : filter by weather
         dates = parse_weather_dates(args.date, args.weekend)
 
         for target_date in dates:
@@ -588,10 +596,54 @@ def main():
                 args.mesh_km
             )
 
-            if args.nn:
-                output_nn(acceptable_weather_filtered_mountains)
-            else:
-                output_human(acceptable_weather_filtered_mountains)
+            for _ in acceptable_weather_filtered_mountains:
+                uuid = _["mountain"]["mountain_uuid"]
+                if not uuid in _selected_uuids:
+                    _selected_uuids.add(uuid)
+                    _selected.append(_)
+
+            if not args.urlOnly:
+                if args.nn:
+                    output_nn(acceptable_weather_filtered_mountains)
+                else:
+                    output_human(acceptable_weather_filtered_mountains)
+
+    if args.nn:
+        output_nn(_selected)
+    else:
+        if not args.urlOnly:
+            output_human(_selected)
+
+        for _ in _selected:
+            aMountain = _["mountain"]
+            results = recUtil.parseRecentRecord( aMountain["url"] )
+            n = 0
+            for aResult in results:
+                n=n+1
+                if n==1:
+                    print(
+                        f'{aMountain["mountain_name"]}'
+                        f'({aMountain["yomi"]})'
+                        f'({aMountain["altitude"]}m)'
+                        f'({aMountain["mountain_uuid"]}):'
+                    )
+                if n<=args.numOpen:
+                    url = aResult["url"]
+                    if args.urlOnly:
+                        print( url )
+                    else:
+                        print(
+                            f'  {url}'
+                            f': {aResult["date_text"]} : {aResult["title"]}'
+                        )
+
+
+                    if args.openUrl:
+                        if n>=2:
+                            time.sleep(1)
+                        ExecUtil.open( url )
+
+
 
 
 if __name__ == "__main__":
