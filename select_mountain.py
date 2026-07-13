@@ -79,11 +79,12 @@ def load_excludes(path, mountains):
 def filter_range(v, minv, maxv):
     result = True
 
-    if minv is not None and v < minv:
-        result = False
+    if v is not None:
+        if minv is not None and v < minv:
+            result = False
 
-    if maxv is not None and v > maxv:
-        result = False
+        if maxv is not None and v > maxv:
+            result = False
 
     return result
 
@@ -111,7 +112,10 @@ def get_min_from_hhmm(hhmm):
             mm = int(_hhmm[1])
             result = hh * 60 + mm
         except:
-            result = int(str(hhmm))
+            try:
+                result = int(str(hhmm))
+            except:
+                pass
 
     return result
 
@@ -579,7 +583,7 @@ def main():
         dates = parse_weather_dates(args.date, args.weekend)
 
         for target_date in dates:
-            if not args.nn:
+            if not args.nn and not args.urlOnly:
                 print(f"# {target_date}")
 
             # filter the mountain
@@ -609,6 +613,7 @@ def main():
                     output_human(acceptable_weather_filtered_mountains)
 
     if args.nn:
+        # print mountain name only
         output_nn(_selected)
     else:
         if not args.urlOnly:
@@ -619,29 +624,33 @@ def main():
             results = recUtil.parseRecentRecord( aMountain["url"] )
             n = 0
             for aResult in results:
-                n=n+1
-                if n==1:
-                    print(
-                        f'{aMountain["mountain_name"]}'
-                        f'({aMountain["yomi"]})'
-                        f'({aMountain["altitude"]}m)'
-                        f'({aMountain["mountain_uuid"]}):'
-                    )
-                if n<=args.numOpen:
-                    url = aResult["url"]
-                    if args.urlOnly:
-                        print( url )
-                    else:
+                is_Ok = True
+                is_Ok = is_Ok and filter_range(get_min_from_hhmm(aResult["climb_time"]), minClimbTime, maxClimbTime)
+                is_Ok = is_Ok and filter_range(float(aResult["distance_km"]), args.distanceMin, args.distanceMax)
+                is_Ok = is_Ok and filter_range(float(aResult["elevation"]), args.elevationMin, args.elevationMax)
+                if is_Ok:
+                    n=n+1
+                    if n==1 and not args.urlOnly:
                         print(
-                            f'  {url}'
-                            f': {aResult["date_text"]} : {aResult["title"]}'
+                            f'{aMountain["mountain_name"]}'
+                            f'({aMountain["yomi"]})'
+                            f'({aMountain["altitude"]}m)'
+                            f'({aMountain["mountain_uuid"]}):'
                         )
+                    if n<=args.numOpen:
+                        url = aResult["url"]
+                        if args.urlOnly:
+                            print( url )
+                        else:
+                            print(
+                                f'  {url}'
+                                f' {aResult["climb_time"]} {aResult["distance_km"]}km {aResult["elevation"]}m : {aResult["title"]}'
+                            )
 
-
-                    if args.openUrl:
-                        if n>=2:
-                            time.sleep(1)
-                        ExecUtil.open( url )
+                        if args.openUrl:
+                            if n>=2:
+                                time.sleep(1)
+                            ExecUtil.open( url )
 
 
 
