@@ -606,7 +606,7 @@ def main():
                     _selected_uuids.add(uuid)
                     _selected.append(_)
 
-            if not args.urlOnly:
+            if not args.urlOnly and len(dates)!=1:
                 if args.nn:
                     output_nn(acceptable_weather_filtered_mountains)
                 else:
@@ -616,42 +616,76 @@ def main():
         # print mountain name only
         output_nn(_selected)
     else:
-        if not args.urlOnly:
-            output_human(_selected)
+        # print detail with actual climb record
+        _urls = set()
+        for row in _selected:
+            m = row["mountain"]
+            flags = ",".join(m["flags"])
 
-        for _ in _selected:
-            aMountain = _["mountain"]
-            results = recUtil.parseRecentRecord( aMountain["url"] )
+            if not args.urlOnly:
+                try:
+                    print(
+                        f'{m["mountain_name"]}'
+                        f'({m["yomi"]})'
+                        f'({m["altitude"]}m)'
+                        f'({m["mountain_uuid"]}):'
+                        f'{m["url"]}'
+                    )
+                except:
+                    pass
+
+                print(f'   {flags}')
+
+
+            for th in row["trailheads"]:
+                t = th["data"]
+                route_time = th["route_time"]
+
+                if not args.urlOnly:
+                    try:
+                        print(
+                            f'   {t["trailhead_name"]}'
+                            f'({t["latitude"]:.6f} {t["longitude"]:.6f})'
+                            f' : route={get_hhmm_from_min(route_time)}'
+                            f' climb={get_hhmm_from_min(t["climb_time_min"])}'
+                            f' dist={t["distance_min_km"]:.1f}km'
+                            f' gain={t["elevation_gain_min"]}m'
+                        )
+                    except:
+                        pass
+
+
+            results = recUtil.parseRecentRecord( m["url"] )
             n = 0
             for aResult in results:
                 is_Ok = True
-                is_Ok = is_Ok and filter_range(get_min_from_hhmm(aResult["climb_time"]), minClimbTime, maxClimbTime)
-                is_Ok = is_Ok and filter_range(float(aResult["distance_km"]), args.distanceMin, args.distanceMax)
-                is_Ok = is_Ok and filter_range(float(aResult["elevation"]), args.elevationMin, args.elevationMax)
+                try:
+                    is_Ok = is_Ok and filter_range(get_min_from_hhmm(aResult["climb_time"]), minClimbTime, maxClimbTime)
+                    is_Ok = is_Ok and filter_range(float(aResult["distance_km"]), args.distanceMin, args.distanceMax)
+                    is_Ok = is_Ok and filter_range(float(aResult["elevation"]), args.elevationMin, args.elevationMax)
+                except:
+                    pass
                 if is_Ok:
-                    n=n+1
-                    if n==1 and not args.urlOnly:
-                        print(
-                            f'{aMountain["mountain_name"]}'
-                            f'({aMountain["yomi"]})'
-                            f'({aMountain["altitude"]}m)'
-                            f'({aMountain["mountain_uuid"]}):'
-                        )
-                    if n<=args.numOpen:
-                        url = aResult["url"]
-                        if args.urlOnly:
-                            print( url )
-                        else:
-                            print(
-                                f'  {url}'
-                                f' {aResult["climb_time"]} {aResult["distance_km"]}km {aResult["elevation"]}m : {aResult["title"]}'
-                            )
+                    url = aResult["url"]
+                    if not url in _urls:
+                        _urls.add(url)
+                        n=n+1
+                        if n<=args.numOpen:
+                            if args.urlOnly:
+                                print( url )
+                            else:
+                                print(
+                                    f'   {url}'
+                                    f' {aResult["climb_time"]} {aResult["distance_km"]}km {aResult["elevation"]}m : {aResult["title"]}'
+                                )
 
-                        if args.openUrl:
-                            if n>=2:
-                                time.sleep(1)
-                            ExecUtil.open( url )
+                            if args.openUrl:
+                                if n>=2:
+                                    time.sleep(1)
+                                ExecUtil.open( url )
 
+            if not args.urlOnly:
+                print()
 
 
 
