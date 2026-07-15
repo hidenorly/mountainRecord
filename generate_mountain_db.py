@@ -22,6 +22,9 @@ import argparse
 from collections import defaultdict
 import os
 import time
+import copy
+import importlib.util
+import pprint
 
 TOZANGUCHI = os.path.expanduser("~/bin/get_tozanguchi.py")
 ROUTE_TIME = os.path.expanduser("~/work/routeTime/get_route_time.py")
@@ -42,6 +45,17 @@ VERTICAL_ROUTE_KEYWORDS = [
 
 def run(cmd):
     return subprocess.check_output(cmd, shell=True, text=True)
+
+
+def load_py_variable(filename, varname):
+    if not filename or not os.path.exists(filename):
+        return {}
+
+    spec = importlib.util.spec_from_file_location("db", filename)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    return copy.deepcopy(getattr(module, varname, {}))
 
 
 def distance_meter(lat1, lon1, lat2, lon2):
@@ -135,6 +149,30 @@ def parse_mountain_info(name):
     return result
 
 
+def merge_mountain(dst, src):
+    # URL
+    if not dst.get("url") and src.get("url"):
+        dst["url"] = src["url"]
+
+    # flags
+    flags = set(dst.get("flags", []))
+    flags.update(src.get("flags", []))
+    dst["flags"] = sorted(flags)
+
+    # trailheads
+    dst.setdefault("trailheads", {})
+
+    for tid, trailhead in src.get("trailheads", {}).items():
+
+        if tid not in dst["trailheads"]:
+            dst["trailheads"][tid] = copy.deepcopy(trailhead)
+        else:
+            merge_trailhead(
+                dst["trailheads"][tid],
+                trailhead,
+            )
+
+
 def parse_recent_records(name, days, samples):
     out = ""
     grouped = defaultdict(list)
@@ -167,6 +205,18 @@ def safe_median(values):
     if not values:
         return None
     return statistics.median(values)
+
+def weighted_average(v1, n1, v2, n2):
+    if v1 is None:
+        return v2
+    if v2 is None:
+        return v1
+
+    total = n1 + n2
+    if total == 0:
+        return None
+
+    return (v1 * n1 + v2 * n2) / total
 
 
 def is_vertical_route(title):
@@ -245,6 +295,102 @@ def cluster_trailheads(records):
 
     return clusters
 
+def merge_trailhead(dst, src):
+    n1 = dst.get("sample_count", 0)
+    n2 = src.get("sample_count", 0)
+
+    dst["sample_count"] = n1 + n2
+
+    # climb time
+    dst["climb_time_min"] = min(
+        dst["climb_time_min"],
+        src["climb_time_min"],
+    )
+
+    dst["climb_time_max"] = max(
+        dst["climb_time_max"],
+        src["climb_time_max"],
+    )
+
+    dst["climb_time_median"] = int(round(
+        weighted_average(
+            dst["climb_time_median"],
+            n1,
+            src["climb_time_median"],
+            n2,
+        )
+    ))
+
+    # distance
+    for key in (
+        "distance_min_km",
+        "distance_median_km",
+        "distance_max_km",
+    ):
+        dst.setdefault(key, None)
+        src.setdefault(key, None)
+
+    if src["distance_min_km"] is not None:
+        if dst["distance_min_km"] is None:
+            dst["distance_min_km"] = src["distance_min_km"]
+        else:
+            dst["distance_min_km"] = min(
+                dst["distance_min_km"],
+                src["distance_min_km"],
+            )
+
+    if src["distance_max_km"] is not None:
+        if dst["distance_max_km"] is None:
+            dst["distance_max_km"] = src["distance_max_km"]
+        else:
+            dst["distance_max_km"] = max(
+                dst["distance_max_km"],
+                src["distance_max_km"],
+            )
+
+    dst["distance_median_km"] = weighted_average(
+        dst["distance_median_km"],
+        n1,
+        src["distance_median_km"],
+        n2,
+    )
+
+    # elevation
+    for key in (
+        "elevation_gain_min",
+        "elevation_gain_median",
+        "elevation_gain_max",
+    ):
+        dst.setdefault(key, None)
+        src.setdefault(key, None)
+
+    if src["elevation_gain_min"] is not None:
+        if dst["elevation_gain_min"] is None:
+            dst["elevation_gain_min"] = src["elevation_gain_min"]
+        else:
+            dst["elevation_gain_min"] = min(
+                dst["elevation_gain_min"],
+                src["elevation_gain_min"],
+            )
+
+    if src["elevation_gain_max"] is not None:
+        if dst["elevation_gain_max"] is None:
+            dst["elevation_gain_max"] = src["elevation_gain_max"]
+        else:
+            dst["elevation_gain_max"] = max(
+                dst["elevation_gain_max"],
+                src["elevation_gain_max"],
+            )
+
+    gain = weighted_average(
+        dst["elevation_gain_median"],
+        n1,
+        src["elevation_gain_median"],
+        n2,
+    )
+
+    if gain is not None:
+        dst["elevation_gain_median"] = int(round(gain))
 
 def parse_tozanguchi(mountain_name):
     try:
@@ -303,32 +449,82 @@ def get_route_time(lat, lon):
     return int(m.group(1)) * 60 + int(m.group(2))
 
 
-def build_db(mountain_names, days, samples, user_out):
-    db = {}
-    user_routes = {}
+def merge_user_route(user_routes, trailhead_id, route_time, trailhead_name):
+    if route_time is None:
+        return
+
+    if trailhead_id not in user_routes:
+        user_routes[trailhead_id] = {
+            "route_time_min": route_time,
+            "trailhead_name": trailhead_name,
+        }
+        return
+
+    user_routes[trailhead_id]["route_time_min"] = min(
+        user_routes[trailhead_id]["route_time_min"],
+        route_time,
+    )
+
+
+def merge_db(existing_db, new_db):
+    result = copy.deepcopy(existing_db)
+
+    for uuid, mountain in new_db.items():
+
+        if uuid not in result:
+            result[uuid] = copy.deepcopy(mountain)
+        else:
+            merge_mountain(
+                result[uuid],
+                mountain,
+            )
+
+    return result
+
+def save_python_db(filename, varname, data):
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(f"{varname} = ")
+        pprint.pprint(
+            data,
+            stream=f,
+            sort_dicts=False,
+            width=120,
+        )
+
+def build_db(mountain_names, days, samples, user_out, existing_db=None, existing_user_routes=None):
+    db = copy.deepcopy(existing_db or {})
+    user_routes = copy.deepcopy(existing_user_routes or {})
+
     is_wait_required = False
 
     for name in mountain_names:
         print("processing:", name)
+
         if is_wait_required:
             time.sleep(WAIT_SECONDS_PER_MOUNTAIN)
-            is_wait_required = True
+        is_wait_required = True
 
         infos = parse_mountain_info(name)
         record_groups = parse_recent_records(name, days, samples)
 
         info_map = {
-            (x["mountain_name"], x["yomi"], int(x["altitude"])): x
+            (
+                x["mountain_name"],
+                x["yomi"],
+                int(x["altitude"])
+            ): x
             for x in infos
         }
 
         for key, urls in record_groups.items():
+
             if key not in info_map:
                 continue
 
             info = info_map[key]
 
             records = []
+
             for url in urls:
                 detail = parse_detail(url)
                 if detail:
@@ -338,19 +534,31 @@ def build_db(mountain_names, days, samples, user_out):
                 continue
 
             clusters = cluster_trailheads(records)
+
             trailheads = {}
 
             for cluster in clusters:
+
                 rows = cluster["records"]
+
                 lat = cluster["center"]["lat"]
                 lon = cluster["center"]["lon"]
 
-                trailhead_id = generate_trailhead_uuid(lat, lon)
-                trailhead_name = resolve_trailhead_name(
-                    info["mountain_name"], lat, lon
+                trailhead_id = generate_trailhead_uuid(
+                    lat,
+                    lon,
                 )
 
-                durations = [x["duration_min"] for x in rows]
+                trailhead_name = resolve_trailhead_name(
+                    info["mountain_name"],
+                    lat,
+                    lon,
+                )
+
+                durations = [
+                    x["duration_min"]
+                    for x in rows
+                ]
 
                 distances = [
                     x["distance_km"]
@@ -370,40 +578,52 @@ def build_db(mountain_names, days, samples, user_out):
                     "latitude": lat,
                     "longitude": lon,
 
-                    # climb time stats
                     "climb_time_min": min(durations),
                     "climb_time_median": int(statistics.median(durations)),
                     "climb_time_max": max(durations),
 
-                    # distance stats
                     "distance_min_km":
                         min(distances) if distances else None,
                     "distance_median_km":
-                        statistics.median(distances) if distances else None,
+                        statistics.median(distances)
+                        if distances else None,
                     "distance_max_km":
                         max(distances) if distances else None,
 
-                    # elevation stats
                     "elevation_gain_min":
                         min(gains) if gains else None,
                     "elevation_gain_median":
-                        int(statistics.median(gains)) if gains else None,
+                        int(statistics.median(gains))
+                        if gains else None,
                     "elevation_gain_max":
                         max(gains) if gains else None,
 
-                    "sample_count": len(rows)
+                    "sample_count": len(rows),
                 }
 
-                if user_out and lat and lon:
+                # user_route_db
+                if user_out:
                     route_time = get_route_time(lat, lon)
-                    if route_time:
-                        user_routes[trailhead_id] = {
-                            "route_time_min": route_time,
-                            "trailhead_name": trailhead_name
-                        }
+
+                    merge_user_route(
+                        user_routes,
+                        trailhead_id,
+                        route_time,
+                        trailhead_name,
+                    )
 
             info["trailheads"] = trailheads
-            db[info["mountain_uuid"]] = info
+
+            uuid = info["mountain_uuid"]
+
+            # merge into db
+            if uuid not in db:
+                db[uuid] = info
+            else:
+                merge_mountain(
+                    db[uuid],
+                    info,
+                )
 
     return db, user_routes
 
@@ -425,25 +645,83 @@ def load_mountains(files):
 
 def main():
     parser = argparse.ArgumentParser()
+
     parser.add_argument("csv", nargs="+")
     parser.add_argument("--db-out", default="mountain_db.py")
     parser.add_argument("--user-out", default="user_route_db.py")
     parser.add_argument("--days", type=int, default=30)
     parser.add_argument("--samples", type=int, default=5)
+
     args = parser.parse_args()
 
-    names = load_mountains(args.csv)
-    db, user_routes = build_db(names, args.days, args.samples, args.user_out)
+    # load existing DB
+    existing_db = load_py_variable(
+        args.db_out,
+        "MOUNTAINS",
+    )
 
-    if args.db_out and db:
-        with open(args.db_out, "w", encoding="utf-8") as f:
-            f.write("MOUNTAINS = ")
-            f.write(repr(db))
+    existing_user_routes = load_py_variable(
+        args.user_out,
+        "USER_TOZANGUCHI",
+    )
 
-    if args.user_out and user_routes:
-        with open(args.user_out, "w", encoding="utf-8") as f:
-            f.write("USER_TOZANGUCHI = ")
-            f.write(repr(user_routes))
+    # mountain names from csv
+    all_names = load_mountains(args.csv)
+
+    # skip already existing mountains
+    existing_names = {
+        mountain["mountain_name"]
+        for mountain in existing_db.values()
+    }
+
+    target_names = [
+        name
+        for name in all_names
+        if name not in existing_names
+    ]
+
+    print(
+        f"{len(existing_names)} mountains already exist."
+    )
+    print(
+        f"{len(target_names)} mountains will be fetched."
+    )
+
+    if not target_names:
+        print("Nothing to do.")
+        return
+
+    # fetch & merge
+    db, user_routes = build_db(
+        target_names,
+        args.days,
+        args.samples,
+        args.user_out,
+        existing_db,
+        existing_user_routes,
+    )
+
+    # save
+    if args.db_out:
+        save_python_db(
+            args.db_out,
+            "MOUNTAINS",
+            db,
+        )
+
+    if args.user_out:
+        save_python_db(
+            args.user_out,
+            "USER_TOZANGUCHI",
+            user_routes,
+        )
+
+    print()
+    print(
+        f"Done. mountain_db={len(db)}, "
+        f"user_route_db={len(user_routes)}"
+    )
+
 
 
 if __name__ == "__main__":
