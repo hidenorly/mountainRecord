@@ -191,6 +191,28 @@ class MountainRecordUtilYamareco(ParserBase):
 				else:
 					url = 'N/A'
 
+				climb_time = None
+				distance_km = None
+				elevation = None
+
+				track_stat = block.select_one(".track_stat")
+				if track_stat:
+				    imgs = track_stat.find_all("img")
+				    spans = track_stat.find_all("span")
+
+				    for img, span in zip(imgs, spans):
+				        src = img.get("src", "")
+				        value = span.get_text(strip=True)
+
+				        if "icon_time" in src:
+				            climb_time = value
+
+				        elif "icon_distance" in src:
+				            distance_km = float(value.replace("km", ""))
+
+				        elif "icon_uptotal" in src:
+				            elevation = int(value.replace("m", "").replace(",", ""))
+
 				aData = {
 					"title": title,
 					'date_text': date_text,
@@ -199,7 +221,10 @@ class MountainRecordUtilYamareco(ParserBase):
 					'photo': photo,
 					'route': route,
 					"prefecture": prefecture,
-					'url': url
+					'url': url,
+					'climb_time': climb_time,
+					'distance_km': distance_km,
+					'elevation': elevation
 				}
 
 				if aData['date'] and aData['url']!="N/A":
