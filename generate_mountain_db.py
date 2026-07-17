@@ -494,10 +494,14 @@ def save_python_db(filename, varname, data):
 def build_db(mountain_names, days, samples, user_out, existing_db=None, existing_user_routes=None):
     db = copy.deepcopy(existing_db or {})
     user_routes = copy.deepcopy(existing_user_routes or {})
+    not_found = []
+    no_recent_records = []
+    info_mismatch = []
 
     is_wait_required = False
 
     for name in mountain_names:
+
         print("processing:", name)
 
         if is_wait_required:
@@ -505,7 +509,16 @@ def build_db(mountain_names, days, samples, user_out, existing_db=None, existing
         is_wait_required = True
 
         infos = parse_mountain_info(name)
+        if not infos:
+            print(f"WARNING: mountain info not found: {name}")
+            not_found.append(name)
+            continue
+
         record_groups = parse_recent_records(name, days, samples)
+        if not record_groups:
+            print(f"WARNING: no recent records: {name}")
+            no_recent_records.append(name)
+            continue
 
         info_map = {
             (
@@ -519,6 +532,12 @@ def build_db(mountain_names, days, samples, user_out, existing_db=None, existing
         for key, urls in record_groups.items():
 
             if key not in info_map:
+                info_mismatch.append(
+                    {
+                        "mountain": name,
+                        "record": key,
+                    }
+                )
                 continue
 
             info = info_map[key]
@@ -625,7 +644,11 @@ def build_db(mountain_names, days, samples, user_out, existing_db=None, existing
                     info,
                 )
 
-    return db, user_routes
+    return db, user_routes, {
+        "not_found": not_found,
+        "no_recent_records": no_recent_records,
+        "info_mismatch": info_mismatch,
+    }
 
 
 def load_mountains(files):
@@ -692,7 +715,7 @@ def main():
         return
 
     # fetch & merge
-    db, user_routes = build_db(
+    db, user_routes, report = build_db(
         target_names,
         args.days,
         args.samples,
@@ -721,7 +744,24 @@ def main():
         f"Done. mountain_db={len(db)}, "
         f"user_route_db={len(user_routes)}"
     )
+    if report["not_found"]:
+        print()
+        print("Mountain info not found:")
+        for name in sorted(report["not_found"]):
+            print("  ", name)
 
+    if report["no_recent_records"]:
+        print()
+        print("No recent records:")
+        for name in sorted(report["no_recent_records"]):
+            print("  ", name)
+
+    if report["info_mismatch"]:
+        print()
+        print("Info mismatch:")
+        for item in report["info_mismatch"]:
+            print(" ", item["mountain"])
+            print("    record:", item["record"])
 
 
 if __name__ == "__main__":
