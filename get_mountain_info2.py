@@ -158,6 +158,11 @@ def main():
         args.exclude
     )
 
+    mountains = []
+    for m in args.args:
+        if not is_mountain_excluded(m, m, exclude_uuid, exclude_name):
+            mountains.append(m)
+
     selected = collect_candidates(
         db,
         routes,
@@ -174,7 +179,7 @@ def main():
         args.elevationMin,
         args.elevationMax,
         args.category,
-        args.args
+        mountains
     )
 
     sort_candidates(selected)
