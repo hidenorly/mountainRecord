@@ -66,8 +66,8 @@ def main():
     parser.add_argument("-t", "--time")
     parser.add_argument("-H", "--hourly", action="store_true")
     parser.add_argument("-j", "--json", action="store_true")
-
-
+    parser.add_argument('-s', '--stat', action='store_true', help='dump count of mountains per day.')
+    parser.add_argument('-w', '--excludeWeatherConditions', action='store', default='rain,snow,thunder', help='specify excluding weather conditions e.g. rain,thunder default is none then all weathers are ok)')
 
     args = parser.parse_args()
 
@@ -81,6 +81,18 @@ def main():
         args.userRoute,
         args.exclude
     )
+
+    # unacceptable weathers
+    _excludeWeatherConditions = str(args.excludeWeatherConditions).split(",")
+    excludeWeatherConditions = []
+    for e in _excludeWeatherConditions:
+        excludeWeatherConditions.append( e.strip() )
+
+    # exclude from specified mountains
+    mountains = []
+    for m in args.args:
+        if not is_mountain_excluded(m, m, exclude_uuid, exclude_name):
+            mountains.append(m)
 
     selected = collect_candidates(
         db,
@@ -98,7 +110,7 @@ def main():
         args.elevationMin,
         args.elevationMax,
         args.category,
-        args.args
+        mountains
     )
 
     sort_candidates(selected)
@@ -118,6 +130,7 @@ def main():
     )
 
     n = 0
+    date_counts = {}
     for m in selected:
         info = m["mountain"]
 
@@ -126,6 +139,18 @@ def main():
         altitude = float(info["altitude"])
 
         response = get_weather(provider, latitude, longitude, altitude, dates, time_range)
+        if args.stat:
+            for d, agg in response.daily.items():
+                if not d in date_counts:
+                    date_counts[d] = 0
+                is_unacceptable = False
+                for e in excludeWeatherConditions:
+                    if e in agg["weather"]:
+                        is_unacceptable = True
+                if not is_unacceptable:
+                    date_counts[d] += 1
+            continue
+
 
         flags = ",".join(info["flags"])
 
@@ -193,10 +218,9 @@ def main():
 
         print("")
 
-
-
-
-
+    if args.stat:
+        for d, count in date_counts.items():
+            print(f"{d}: {count}")
 
 
 if __name__ == "__main__":
