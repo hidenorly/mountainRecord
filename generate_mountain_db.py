@@ -491,6 +491,80 @@ def save_python_db(filename, varname, data):
             width=120,
         )
 
+def normalize(text):
+    if text is None:
+        return ""
+
+    return (
+        text.strip()
+            .replace("ヶ", "")
+            .replace("ケ", "")
+            .replace("ガ", "")
+            .replace("ヵ", "")
+            .replace("（", "(")
+            .replace("）", ")")
+    )
+
+def find_matching_info(key, infos):
+    if len(infos) == 1:
+        return infos[0]
+
+    name, yomi, altitude = key
+
+    name = normalize(name)
+    yomi = normalize(yomi)
+
+    best = None
+    best_score = -1
+    best_altitude_diff = 999999
+
+    for info in infos:
+
+        info_name = normalize(info["mountain_name"])
+        info_yomi = normalize(info["yomi"])
+
+        score = 0
+
+        if info_name == name:
+            score += 100
+
+        if info_yomi == yomi:
+            score += 80
+
+        if (
+            info_name.startswith(name)
+            or name.startswith(info_name)
+        ):
+            score += 50
+
+        if (
+            info_yomi.startswith(yomi)
+            or yomi.startswith(info_yomi)
+        ):
+            score += 30
+
+        altitude_diff = abs(
+            int(info["altitude"]) - altitude
+        )
+
+        if (
+            score > best_score or
+            (
+                score == best_score and
+                altitude_diff < best_altitude_diff
+            )
+        ):
+            best = info
+            best_score = score
+            best_altitude_diff = altitude_diff
+
+    if best_score <= 0:
+        return None
+
+    return best
+
+
+
 def build_db(mountain_names, days, samples, user_out, existing_db=None, existing_user_routes=None):
     db = copy.deepcopy(existing_db or {})
     user_routes = copy.deepcopy(existing_user_routes or {})
@@ -520,27 +594,18 @@ def build_db(mountain_names, days, samples, user_out, existing_db=None, existing
             no_recent_records.append(name)
             continue
 
-        info_map = {
-            (
-                x["mountain_name"],
-                x["yomi"],
-                int(x["altitude"])
-            ): x
-            for x in infos
-        }
-
         for key, urls in record_groups.items():
+            info = find_matching_info(
+                key,
+                infos,
+            )
 
-            if key not in info_map:
-                info_mismatch.append(
-                    {
-                        "mountain": name,
-                        "record": key,
-                    }
+            if info is None:
+                print(
+                    f"WARNING: cannot match mountain info: "
+                    f"{key}"
                 )
                 continue
-
-            info = info_map[key]
 
             records = []
 
