@@ -278,7 +278,7 @@ def is_mountain_excluded(mountain_uuid, mountain, exclude_uuid, exclude_name):
     if mountain_uuid in exclude_uuid:
         result = True
 
-    if mountain["mountain_name"] in exclude_name:
+    if mountain and "mountain_name" in mountain and mountain["mountain_name"] in exclude_name:
         result = True
 
     return result
