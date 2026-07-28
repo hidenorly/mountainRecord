@@ -28,8 +28,17 @@ from new_get_weather import WeatherQuery, ProviderFactory
 UNACCEPTABLE_WEATHER = {"rain", "snow", "thunder"}
 WEATHER_CACHE = {}
 
+SCRIPT_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def get_ensured_path(path):
+    if not os.path.exists(path):
+        _path = os.path.join(SCRIPT_BASE_DIR, path)
+        if os.path.exists(_path):
+            path = _path
+    return path
 
 def load_module(path):
+    path = get_ensured_path(path)
     spec = importlib.util.spec_from_file_location("mod", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -37,7 +46,7 @@ def load_module(path):
 
 
 def load_resources(mountainDb, userRoute, exclude):
-    db = load_module(mountainDb)
+    db = load_module(os.path.expanduser(mountainDb))
     routes = load_module(os.path.expanduser(userRoute))
 
     exclude_path = None
