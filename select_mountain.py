@@ -21,6 +21,7 @@ import sys
 import math
 from datetime import date, timedelta,datetime
 import time
+import re
 
 from get_recent_record2 import MountainRecordUtil,ExecUtil
 
@@ -129,14 +130,96 @@ def get_min_from_hhmm(hhmm):
     return result
 
 
-def parse_mmdd(token, today):
-    month, day = map(int, token.split("/"))
-    result = date(today.year, month, day)
+def parse_mmdd(token, today=None):
+    if today is None:
+        today = date.today()
 
-    if result < today:
-        result = date(today.year + 1, month, day)
+    token = token.strip()
 
-    return result
+    m = re.match(r"^(\d{1,2})/(\d{1,2})$", token)
+
+    if m:
+        month = int(m.group(1))
+        day = int(m.group(2))
+
+    else:
+        m = re.match(r"^(\d{1,2})$", token)
+        if not m:
+            raise ValueError(f"invalid date: {token}")
+
+        month = today.month
+        day = int(m.group(1))
+
+    candidate = date(today.year, month, day)
+
+    if candidate < today:
+        candidate = date(today.year + 1, month, day)
+
+    return candidate
+
+
+def parse_explicit_dates(spec, today):
+    dates = []
+
+    if not spec:
+        return dates
+
+    for token in spec.split(","):
+        token = token.strip()
+
+        if not token:
+            continue
+
+        if "-" in token:
+            start_s, end_s = token.split("-", 1)
+
+            start = parse_mmdd(start_s, today)
+
+            m = re.match(r"^(\d{1,2})/(\d{1,2})$", end_s.strip())
+
+            if m:
+                end_month = int(m.group(1))
+                end_day = int(m.group(2))
+
+            else:
+                m = re.match(r"^(\d{1,2})$", end_s.strip())
+
+                if not m:
+                    raise ValueError(
+                        f"invalid date range: {token}"
+                    )
+
+                end_month = start.month
+                end_day = int(m.group(1))
+
+            if (end_month, end_day) < (start.month, start.day):
+                end = date(
+                    start.year + 1,
+                    end_month,
+                    end_day
+                )
+            else:
+                end = date(
+                    start.year,
+                    end_month,
+                    end_day
+                )
+
+            if end < start:
+                raise ValueError(
+                    f"invalid range: {token}"
+                )
+
+            cur = start
+
+            while cur <= end:
+                dates.append(cur)
+                cur += timedelta(days=1)
+
+        else:
+            dates.append(parse_mmdd(token, today))
+
+    return dates
 
 
 def parse_weather_dates(date_spec, weekend):
@@ -148,21 +231,26 @@ def parse_weather_dates(date_spec, weekend):
 
         if wd <= 4:
             sat = today + timedelta(days=(5 - wd))
-            result.extend([sat, sat + timedelta(days=1)])
+            result.extend([
+                sat,
+                sat + timedelta(days=1),
+            ])
+
         elif wd == 5:
-            result.extend([today, today + timedelta(days=1)])
+            result.extend([
+                today,
+                today + timedelta(days=1),
+            ])
+
         else:
             result.extend([
                 today,
                 today + timedelta(days=6),
-                today + timedelta(days=7)
+                today + timedelta(days=7),
             ])
 
     if date_spec:
-        for token in date_spec.split(","):
-            token = token.strip()
-            if token:
-                result.append(parse_mmdd(token, today))
+        result.extend(parse_explicit_dates(date_spec, today))
 
     if not result:
         result = [today]
@@ -326,6 +414,7 @@ def filter_trailhead(th, routes, minRouteTime, maxRouteTime, minClimbTime, maxCl
             "route_time": 9999, # should be worst trailhead
             "data": th
         }
+        result = None
 
     return result
 
