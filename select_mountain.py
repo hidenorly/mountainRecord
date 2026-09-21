@@ -419,7 +419,7 @@ def filter_trailhead(th, routes, minRouteTime, maxRouteTime, minClimbTime, maxCl
     return result
 
 def is_target_category(mflags, categories):
-    if categories is None or len(categories)==0 or mflags is None or len(mflags)==0:
+    if categories is None or len(categories)==0 or mflags is None:
         return True
 
     concat_flags=",".join(mflags)
@@ -430,21 +430,33 @@ def is_target_category(mflags, categories):
     return False
 
 
-def collect_candidates(db, routes, exclude_uuid, exclude_name, altitudeMin, altitudeMax, minRouteTime, maxRouteTime, minClimbTime, maxClimbTime, distanceMin, distanceMax, elevationMin, elevationMax, category):
+def collect_candidates(db, routes, exclude_uuid, exclude_name, altitudeMin, altitudeMax, minRouteTime, maxRouteTime, minClimbTime, maxClimbTime, distanceMin, distanceMax, elevationMin, elevationMax, category, mountains):
     selected = []
 
     categories = None
     if category:
         categories = category.split(",")
 
+    is_onlyspecified = False
+    if mountains:
+        is_onlyspecified = True
+
     for mountain_uuid, mountain in db.MOUNTAINS.items():
-        if is_mountain_excluded(
-            mountain_uuid,
-            mountain,
-            exclude_uuid,
-            exclude_name
-        ):
+        is_bypass = False
+        if is_onlyspecified and not (mountain_uuid in mountains or mountain["mountain_name"] in mountains or mountain["yomi"] in mountains):
             continue
+
+        if not is_onlyspecified:
+            if is_mountain_excluded(
+                mountain_uuid,
+                mountain,
+                exclude_uuid,
+                exclude_name
+            ):
+                continue
+
+            if not is_target_category(mountain["flags"], categories):
+                continue
 
         altitude = mountain["altitude"]
         if not filter_range(
@@ -452,9 +464,6 @@ def collect_candidates(db, routes, exclude_uuid, exclude_name, altitudeMin, alti
             altitudeMin,
             altitudeMax
         ):
-            continue
-
-        if not is_target_category(mountain["flags"], categories):
             continue
 
         trailheads = []
@@ -536,9 +545,21 @@ def filter_candidates_by_weather(selected, db, routes, weatherProvider, target_d
     return result
 
 
-def sort_candidates(selected):
+def sort_candidates(selected, mountains=None):
+    result = []
+    remaining = []
     selected.sort(key=lambda x: x["best_route"])
-
+    if mountains:
+        for m in selected:
+            _ = m["mountain"]
+            if _["mountain_uuid"] in mountains or _["mountain_name"] in mountains or _["yomi"] in mountains:
+                result.append(m)
+            else:
+                remaining.append(m)
+        result.extend(remaining)
+    else:
+        result = selected
+    return result
 
 def output_nn(selected):
     names = []
@@ -594,6 +615,7 @@ def output_human(selected):
 
 def parse_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('args', nargs='*', help='mountain names')
 
     parser.add_argument("-m", "--mountainDb", default="mountain_db.py")
     parser.add_argument("-u", "--userRoute", default="user_route_db.py")
@@ -650,6 +672,12 @@ def main():
         args.userRoute,
         args.exclude
     )
+
+    mountains = []
+    for m in args.args:
+        if not is_mountain_excluded(m, m, exclude_uuid, exclude_name):
+            mountains.append(m)
+
     selected = collect_candidates(
         db,
         routes,
@@ -665,9 +693,10 @@ def main():
         args.distanceMax,
         args.elevationMin,
         args.elevationMax,
-        args.category
+        args.category,
+        mountains
     )
-    sort_candidates(selected)
+    selected = sort_candidates(selected, mountains)
 
     _selected = []
     _selected_uuids = set()
