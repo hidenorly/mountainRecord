@@ -8,6 +8,15 @@ python3 get_mountain_list_yamap.py > mountainDic_yamap.py
 python3 mountain_dic_to_json.py
 ```
 
+## for automated login to access the member only info.
+
+```.zprofile
+YAMAP_USER_ID=
+YAMAP_PASSWORD=
+YAMARECO_USER_ID=
+YAMARECO_PASSWORD=
+```
+
 ## get_recent_record.py
 
 get recent mountain record page's url list of specified mountain names
@@ -140,3 +149,69 @@ options:
 python3 get_mountain_info.py 皇海山
 ```
 
+
+
+
+
+# 
+
+## generate mountain db
+
+```
+python3 generate_mountain_db.py
+```
+
+* ```mountain_db.py``` is the result of the mountain database.
+* ```user_route_db.py``` is the result of the driving time from specified location (the default destination point is from Tokyo Tower!)
+
+
+## select database
+
+```
+python3 select_mountain.py -x ~/excludes.csv -h 
+usage: select_mountain.py [-h] [-u USERROUTE] [-x EXCLUDE] [-r MINROUTETIME] [-R MAXROUTETIME] [-c MINCLIMBTIME]
+                          [-C MAXCLIMBTIME] [-d DISTANCEMIN] [-D DISTANCEMAX] [-e ELEVATIONMIN] [-E ELEVATIONMAX]
+                          [-a ALTITUDEMIN] [-A ALTITUDEMAX] [-nn]
+
+options:
+  -h, --help            show this help message and exit
+  -u USERROUTE, --userRoute USERROUTE
+  -x EXCLUDE, --exclude EXCLUDE
+  -r MINROUTETIME, --minRouteTime MINROUTETIME
+  -R MAXROUTETIME, --maxRouteTime MAXROUTETIME
+  -c MINCLIMBTIME, --minClimbTime MINCLIMBTIME
+  -C MAXCLIMBTIME, --maxClimbTime MAXCLIMBTIME
+  -d DISTANCEMIN, --distanceMin DISTANCEMIN
+  -D DISTANCEMAX, --distanceMax DISTANCEMAX
+  -e ELEVATIONMIN, --elevationMin ELEVATIONMIN
+  -E ELEVATIONMAX, --elevationMax ELEVATIONMAX
+  -a ALTITUDEMIN, --altitudeMin ALTITUDEMIN
+  -A ALTITUDEMAX, --altitudeMax ALTITUDEMAX
+  -nn
+```
+
+```
+python3 select_mountain.py -x ~/excludes.csv | less
+```
+
+```
+python3 select_mountain.py -x ~/excludes.csv -nn
+```
+
+
+
+# TODO
+
+* [x] JsonCache introduction as select_mountain.py
+* [x] JsonCache introduction as new_get_weather.py (tenkura)
+* [] Weather query optimization
+  * per-distance from the starting point map and coarse-grain (large mesh) weather based query
+* [] Parameterize top mountain time calculation
+* [] Parameterize unacceptable weather condition time calculation
+
+* [] by-mountain name query (select_mountain.py, new_get_weather.py)
+* [] add windy support
+* [] add MSM support
+
+* [] integrate to LLM
+* [] 別directoryでの実行 (script実行パス)
