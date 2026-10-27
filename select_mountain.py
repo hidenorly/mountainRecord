@@ -340,8 +340,8 @@ def summit_weather_ok(provider, mountain, target_date, dates, startHour, duratio
 def trailhead_weather_ok(provider, mountain, trailhead, target_date, dates, pace, startHour, mesh_km):
     result = True
 
-    climb_min = trailhead["climb_time_min"]
-    duration_hour = max(1, int((climb_min * pace) / 60) + 1)
+    climb_median = trailhead["climb_time_median"]
+    duration_hour = max(1, int((climb_median * pace) / 60) + 1)
 
     alt = mountain["altitude"] - trailhead["elevation_gain_min"]
     if alt < 0:
@@ -392,13 +392,13 @@ def filter_trailhead(th, routes, minRouteTime, maxRouteTime, minClimbTime, maxCl
             route_time = routes.USER_TOZANGUCHI[tid]["route_time_min"]
             is_Ok = is_Ok and filter_range(route_time, minRouteTime, maxRouteTime)
 
-            climb_time = th["climb_time_min"]
+            climb_time = th["climb_time_median"]
             is_Ok = is_Ok and filter_range(climb_time, minClimbTime, maxClimbTime)
 
-            distance = th["distance_min_km"]
+            distance = th["distance_median_km"]
             is_Ok = is_Ok and filter_range(distance, distanceMin, distanceMax)
 
-            elevation = th["elevation_gain_min"]
+            elevation = th["elevation_gain_median"]
             is_Ok = is_Ok and filter_range(elevation, elevationMin, elevationMax)
         except:
             pass
@@ -483,7 +483,7 @@ def collect_candidates(db, routes, exclude_uuid, exclude_name, altitudeMin, alti
             trailheads.sort(
                 key=lambda x: (
                     x["route_time"] +
-                    x["data"]["climb_time_min"]
+                    x["data"]["climb_time_median"]
                 )
             )
 
@@ -508,7 +508,7 @@ def filter_candidates_by_weather(selected, db, routes, weatherProvider, target_d
             mountain = row["mountain"]
             trailheads = []
 
-            max_climb = max(x["data"]["climb_time_min"] for x in row["trailheads"])
+            max_climb = max(x["data"]["climb_time_median"] for x in row["trailheads"])
             duration_hour = max(1, int((max_climb * pace) / 60) + 1)
 
             summit_ok = summit_weather_ok(
@@ -603,9 +603,9 @@ def output_human(selected):
                     f'   {t["trailhead_name"]}'
                     f'({t["latitude"]:.6f} {t["longitude"]:.6f})'
                     f' : route={get_hhmm_from_min(route_time)}'
-                    f' climb={get_hhmm_from_min(t["climb_time_min"])}'
-                    f' dist={t["distance_min_km"]:.1f}km'
-                    f' gain={t["elevation_gain_min"]}m'
+                    f' climb={get_hhmm_from_min(t["climb_time_median"])}'
+                    f' dist={t["distance_median_km"]:.1f}km'
+                    f' gain={t["elevation_gain_median"]}m'
                 )
             except:
                 pass
@@ -774,9 +774,9 @@ def main():
                             f'   {t["trailhead_name"]}'
                             f'({t["latitude"]:.6f} {t["longitude"]:.6f})'
                             f' : route={get_hhmm_from_min(route_time)}'
-                            f' climb={get_hhmm_from_min(t["climb_time_min"])}'
-                            f' dist={t["distance_min_km"]:.1f}km'
-                            f' gain={t["elevation_gain_min"]}m'
+                            f' climb={get_hhmm_from_min(t["climb_time_median"])}'
+                            f' dist={t["distance_median_km"]:.1f}km'
+                            f' gain={t["elevation_gain_median"]}m'
                         )
                     except:
                         pass
