@@ -66,7 +66,7 @@ def collect_candidates(db, routes, exclude_uuid, exclude_name, altitudeMin, alti
 	            trailheads.sort(
 	                key=lambda x: (
 	                    x["route_time"] +
-	                    x["data"]["climb_time_min"]
+	                    x["data"]["climb_time_median"]
 	                )
 	            )
 
@@ -108,9 +108,9 @@ def output_human(selected):
                     f'   {t["trailhead_name"]}'
                     f'({t["latitude"]:.6f} {t["longitude"]:.6f})'
                     f' : route={get_hhmm_from_min(route_time)}'
-                    f' climb={get_hhmm_from_min(t["climb_time_min"])}'
-                    f' dist={t["distance_min_km"]:.1f}km'
-                    f' gain={t["elevation_gain_min"]}m'
+                    f' climb={get_hhmm_from_min(t["climb_time_median"])}'
+                    f' dist={t["distance_median_km"]:.1f}km'
+                    f' gain={t["elevation_gain_median"]}m'
                 )
             except:
                 pass
