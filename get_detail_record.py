@@ -38,6 +38,8 @@ except:
 	def get_mapcode(latitude, longitude):
 		return None
 
+USE_SELENIUM_FALLBACK = True
+
 class ParserBase:
 	TARGET_URL = "DUMMY"
 	def __init__(self):
@@ -535,7 +537,7 @@ class MountainDetailRecordUtil:
 		if soup and self._parser:
 			result = self._parser.parseRecentRecord(soup, result)
 
-		if self.isFailedToParse(result):
+		if self.isFailedToParse(result) and USE_SELENIUM_FALLBACK:
 			# fallback
 			driver = WebUtil.get_web_driver()
 			if self._parser:
@@ -585,11 +587,15 @@ if __name__=="__main__":
 	parser.add_argument('-c', '--clearCache', action='store_true', default=False, help='specify if you want to execute with clearing cache')
 	parser.add_argument('-w', '--oneline', action='store_true', default=False, help='specify if you want to print as oneline manner')
 	parser.add_argument('-x', '--xoneline', action='store_true', default=False, help='specify if you want to print as oneline manner(extended)')
+	parser.add_argument('-nb', '--noBrowser', action='store_true', default=False, help='specify if you want to disable selenium fallback and list failed urls at the end')
 
 	args = parser.parse_args()
 
 	if args.clearCache:
 		JsonCache.clearAllCache(MountainDetailRecordUtil.CACHE_ID)
+
+	if args.noBrowser:
+		USE_SELENIUM_FALLBACK = False
 
 	args.filterOut = args.filterOut.split("|")
 	maxDurationMin = MountainDetailRecordUtil.getMinutesFromHHMM(args.maxTime)
@@ -597,11 +603,13 @@ if __name__=="__main__":
 
 	i = 0
 	urlList={}
+	failed_urls = []
 	for aUrl in args.args:
 		urlList[aUrl] = aUrl
 	for aUrl in urlList.keys():
 		anInfo = MountainDetailRecordUtil(aUrl)
-
+		if not anInfo.isValid():
+			failed_urls.append(aUrl)
 		# Filter out non-parsable case (login required, etc.)
 		if args.noOutputIfNone and not anInfo.isValid():
 			continue
@@ -655,3 +663,9 @@ if __name__=="__main__":
 				time.sleep(1)
 			ExecUtil.open( aUrl )
 		i = i + 1
+
+	if args.noBrowser and failed_urls:
+		print("")
+		print("# failed urls:")
+		for aUrl in failed_urls:
+			print(aUrl)
